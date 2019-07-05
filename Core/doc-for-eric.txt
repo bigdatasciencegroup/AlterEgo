@@ -1,0 +1,37 @@
+check the code on the server is the latest
+    - usually I ran two commands in the folder SilentSpeech
+        - git fetch
+        - git reset --hard origin/master
+    - these two commands can force the code on the server to be in sync with the code on the github
+
+collecting the data (locally)
+    - all data are stored in the SilentSpeech\OpenBCI_GUI_orson\OpenBCI_GUI\SavedDataOrson
+        (run once openBCI GUI, generate one data file)
+    - usually the file for 500 data points should be 40-60 MB
+    - open the remove.py script to remove noise like gulping
+        - modify the name in the line 2 and line 10 (rename the file to some simpler name such as "Digits0109.txt")
+    - now we can used the data file (say, Digits0109.txt)
+    - you can first copy-paste it into "SilentSpeech\data_raw\" locally [optionally]. But you NEED to upload it to the server and put it into "SilentSpeech\data_raw\"
+
+digits_keras_no_shuffle_feature_selection.py (on the server)
+    - digits classifier training
+        - change the dataset file name in the code (line 190)
+        - change the output model name in the code (if using cnn, line 330)
+
+vad_fused_keras_no_shuffle.py (on the server, recommend run the vad_fused_keras_no_shuffle_for_demo.py instead)
+    - vad classifier training
+        - change the dataset file name in the code (line 25)
+        - change the output model name in the code (line 234 for vad_fused_keras_no_shuffle.py, line 170 for vad_fused_keras_no_shuffle_for_demo.py)
+
+these two files need to be run seperately. You can see the results of the training in the "SilentSpeech\log\"
+
+After training, pull the models (one for digits classifier and one for vad classifier) from the server (usually should be in the SilentSpeech/models folder) to local laptop.
+
+
+realtime_processing.py (locally)
+    - change the names of the models that were just pulled from the server
+
+
+pipeline for new data collection
+    - prepare the sentence
+    - prepare the SilentSpeech\OpenBCI_GUI_orson\OpenBCI_GUI\dic\corpus.txt (index,sentence)
