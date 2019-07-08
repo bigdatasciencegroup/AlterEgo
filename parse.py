@@ -1,5 +1,12 @@
-##### Creating the dataset by pruning cmudict-0_7b
+'''
+Ran using Python 3.6.8
 
+Creates dataset of 3 phonemes by pruning cmudict-0_7b:
+1) 33 out of 39 phonemes used - Phonemes (6) with visible movements
+2) first 3 phonemes of each word taken and repetitions removed
+
+Prints (on terminal) out the distribution of phonemes in the generated dataset
+'''
 
 import numpy as np
 from nltk.util import ngrams
@@ -53,12 +60,12 @@ Z = 0
 ZH = 0
 
 for index,rows in enumerate(data):
-	if 'P' in rows:		pass
-	elif 'B' in rows:	pass
-	elif 'F' in rows:	pass
-	elif 'M' in rows:	pass
-	elif 'V' in rows:	pass
-	elif 'W' in rows:	pass
+	if 'P' in rows:		pass # visible movement
+	elif 'B' in rows:	pass # visible movement
+	elif 'F' in rows:	pass # visible movement
+	elif 'M' in rows:	pass # visible movement
+	elif 'V' in rows:	pass # visible movement
+	elif 'W' in rows:	pass # visible movement
 	else:
 		rows = [element.replace('AA0','AA') for element in rows]
 		rows = [element.replace('AA1','AA') for element in rows]
