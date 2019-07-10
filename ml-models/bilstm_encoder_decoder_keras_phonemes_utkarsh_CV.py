@@ -174,7 +174,6 @@ result_file.write('epoch, training_loss, training_acc, max_validation_accuracy, 
 
 # Cross validation
 cvscores = []
-print("--------------------------------------------------------")
 
 for fold in list(range(config.num_folds)):
 
@@ -392,15 +391,17 @@ for fold in list(range(config.num_folds)):
     model.fit([train_sequences, train_labels[:, :-1, :]], train_labels[:, 1:, :],
               validation_split=0.1,
               batch_size=config.batch_size, epochs=config.num_epochs,
-              callbacks=[tensorboard, training_callbacks], verbose=1)
+              callbacks=[tensorboard, training_callbacks], verbose=0)
 
     # evaluate the model of this fold
 
     scores = model.evaluate([test_sequences, test_labels], test_labels, verbose=0)
     print("Fold %i %s on test: %.2f%%" % (fold, model.metrics_names[1], scores[1] * 100))
+    result_file.write("Fold %i %s on test: %.2f%%" % (fold, model.metrics_names[1], scores[1] * 100))
     cvscores.append(scores[1] * 100)
 
     model.summary(print_fn=lambda x: result_file.write(x + '\n'))
 
-print("Final: %.2f%% (+/- %.2f%%)" % (np.mean(cvscores), np.std(cvscores)))
+print("Final avg acc: %.2f%% (+/- %.2f%%)" % (np.mean(cvscores), np.std(cvscores)))
+result_file.write("Final avg acc: %.2f%% (+/- %.2f%%)" % (np.mean(cvscores), np.std(cvscores)))
 
