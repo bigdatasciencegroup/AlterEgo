@@ -1,9 +1,9 @@
 import os
 import numpy as np
 import tensorflow as tf
-from tensorflow.python.keras.models import Model
+from tensorflow.python.keras.models import Model, load_model
 from tensorflow.python.keras.layers import Input, CuDNNLSTM, LSTM, Dense, Concatenate, Bidirectional
-from tensorflow.python.keras.callbacks import Callback, TensorBoard
+from tensorflow.python.keras.callbacks import Callback, TensorBoard, EarlyStopping, ModelCheckpoint
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras import optimizers
 import matplotlib
@@ -168,7 +168,7 @@ timeString = time.strftime("%Y%m%d-%H%M%S", time.localtime())
 log_name = "{}_e{}_b{}_phon_bidir_utkarsh_CV".format(timeString, config.num_epochs, config.batch_size)
 result_file = open(log_name + ".txt", "w")
 # Print header
-result_file.write('# HYPERPARAMETERS:\nepochs:{}\nbatch size:{}\nlatent dim:{}\nlearning rate:{}\ndecay:{}\nattention:{}\nfolds:{}\n'.format(config.num_epochs, config.batch_size, config.latent_dim, config.learning_rate, config.decay, config.with_attention, config.num_folds))
+result_file.write('# HYPERPARAMETERS:\nepochs:{}\nbatch size:{}\nlatent dim:{}\nlearning rate:{}\ndecay:{}\nattention:{}\nearly stopping:{}\nfolds:{}\n'.format(config.num_epochs, config.batch_size, config.latent_dim, config.learning_rate, config.decay, config.with_attention, config.early_stopping, config.num_folds))
 result_file.write('epoch, training_loss, training_acc, max_validation_accuracy, val_loss, validation_accuracy\n')
 
 
@@ -302,6 +302,7 @@ for fold in list(range(config.num_folds)):
             super(TrainingCallbacks, self).__init__()
             self.targets = None
             self.outputs = None
+            #self.not_improved = 0
 
             self.batch_targets = tf.Variable(0., validate_shape=False)
             self.batch_outputs = tf.Variable(0., validate_shape=False)
@@ -368,9 +369,6 @@ for fold in list(range(config.num_folds)):
                 "{}, {}, {}, {}, {}, {}\n".format(self.epoch, self.training_loss, self.training_accuracy,
                                                       self.max_validation_accuracy, logs['val_loss'], validation_accuracy))
 
-        #        validation_output = self.model.predict([val_sequences, val_labels])
-        #        print np.shape(validation_output)
-
         def on_train_end(self, logs={}):
             pass
 
@@ -378,6 +376,8 @@ for fold in list(range(config.num_folds)):
     #        print 'on_train_end', logs
 
     training_callbacks = TrainingCallbacks()
+
+
     fetches = [tf.assign(training_callbacks.batch_targets, model.targets[0], validate_shape=False),
                tf.assign(training_callbacks.batch_outputs, model.outputs[0], validate_shape=False)]
     model._function_kwargs = {'fetches': fetches}
@@ -387,21 +387,36 @@ for fold in list(range(config.num_folds)):
 
     tensorboard = TensorBoard(log_dir="logs_CV/{}_f{}".format(log_name, str(fold)), histogram_freq=1, write_graph=True, write_images=False)
 
-    # todo: why remove 1 channel??
-    model.fit([train_sequences, train_labels[:, :-1, :]], train_labels[:, 1:, :],
-              validation_split=0.1,
-              batch_size=config.batch_size, epochs=config.num_epochs,
-              callbacks=[tensorboard, training_callbacks], verbose=0)
+    if config.early_stopping is True:
+        # stop training if val accuracy has not improved since X epochs
+        es = EarlyStopping(monitor='val_acc', mode='max', verbose=0, patience=10, min_delta=0.05)
+        # save the best model before the stopping point
+        mc = ModelCheckpoint('best_model_f{}.h5'.format(fold), monitor='val_acc', mode='max', save_best_only=True,
+                             verbose=0)
+        model.fit([train_sequences, train_labels[:, :-1, :]], train_labels[:, 1:, :],
+                  validation_split=0.1,
+                  batch_size=config.batch_size, epochs=config.num_epochs,
+                  callbacks=[tensorboard, training_callbacks, es, mc], verbose=0)
+        # evaluate the saved best model of this fold on the test set (is stopping early)
+        best_model = load_model('best_model_f{}.h5'.format(fold))
+        scores = best_model.evaluate([test_sequences, test_labels], test_labels, verbose=0)
+        print("Fold %i %s on test: %.2f%%" % (fold, best_model.metrics_names[1], scores[1] * 100))
+        result_file.write("Fold %i %s on test: %.2f%%" % (fold, best_model.metrics_names[1], scores[1] * 100))
+        cvscores.append(scores[1] * 100)
 
-    # evaluate the model of this fold
-
-    scores = model.evaluate([test_sequences, test_labels], test_labels, verbose=0)
-    print("Fold %i %s on test: %.2f%%" % (fold, model.metrics_names[1], scores[1] * 100))
-    result_file.write("Fold %i %s on test: %.2f%%" % (fold, model.metrics_names[1], scores[1] * 100))
-    cvscores.append(scores[1] * 100)
+    else:
+        # todo: why this shape for the labels??
+        model.fit([train_sequences, train_labels[:, :-1, :]], train_labels[:, 1:, :],
+                  validation_split=0.1,
+                  batch_size=config.batch_size, epochs=config.num_epochs,
+                  callbacks=[tensorboard, training_callbacks], verbose=0)
+        # evaluate on the last model
+        scores = model.evaluate([test_sequences, test_labels], test_labels, verbose=0)
+        print("Fold %i %s on test: %.2f%%" % (fold, model.metrics_names[1], scores[1] * 100))
+        result_file.write("Fold %i %s on test: %.2f%%" % (fold, model.metrics_names[1], scores[1] * 100))
+        cvscores.append(scores[1] * 100)
 
     model.summary(print_fn=lambda x: result_file.write(x + '\n'))
 
 print("Final avg acc: %.2f%% (+/- %.2f%%)" % (np.mean(cvscores), np.std(cvscores)))
 result_file.write("Final avg acc: %.2f%% (+/- %.2f%%)" % (np.mean(cvscores), np.std(cvscores)))
-
