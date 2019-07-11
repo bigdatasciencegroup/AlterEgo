@@ -32,6 +32,7 @@ Requirements:
     pip uninstall tensorflow-estimator
     # if using tensorbaord
     pip install tensorboard==1.12.0
+    pip install h5py
 
 CUDA Version 9.0.176, CUDNN version 7
 
