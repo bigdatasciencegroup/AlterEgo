@@ -159,14 +159,14 @@ def data():
     test_files = []
     for data_file in input_data:
         if data_file['type'] == 'phonemes_utkarsh':
-            if 'train1' in data_file['filename'] or 'train2' in data_file['filename']:
+            if 'train' in data_file['filename']:
                 train_file = data_proc.process_scrambled(data_file['labels'], [config.file_path + data_file['filename']],
                                                     channels=config.channels,
                                                     sample_rate=config.sample_rate, surrounding=config.surrounding,
                                                     exclude=set([]),
                                                     num_classes=config.num_classes)
                 training_files.append(train_file)
-            if 'test1' in data_file['filename'] or 'test2' in data_file['filename']:
+            if 'test' in data_file['filename']:
                 test_file = data_proc.process_scrambled(data_file['labels'], [config.file_path + data_file['filename']],
                                                    channels=config.channels,
                                                    sample_rate=config.sample_rate, surrounding=config.surrounding,
@@ -238,8 +238,16 @@ def create_model(x_train, y_train, x_test, y_test):
         - model: specify the model just created so that we can later use it again.
     """
 
-    encoder_inputs = Input(shape=(1330, len(config.channels)))
-    encoder = Bidirectional(LSTM(512, return_state=True, return_sequences=True))
+    latent_dim = {{choice([128, 256, 512, 1024])}}
+    activation = {{choice(['softmax', 'tanh', 'relu', 'sigmoid', 'linear'])}}
+    dropout_rate = {{uniform(0, 1)}}
+    recurrent_dropout = {{uniform(0, 1)}}
+    learning_rate = {{uniform(0, 1)}}
+    decay = {{uniform(0, 1)}}
+    optimizer = {{choice(['rmsprop', 'adam', 'sgd'])}}
+
+    encoder_inputs = Input(shape=(1572, len(config.channels)))
+    encoder = Bidirectional(LSTM(latent_dim, return_state=True, return_sequences=True))
     encoder_outputs, forward_h, forward_c, backward_h, backward_c = encoder(encoder_inputs)
 
     state_h = Concatenate()([forward_h, backward_h])
@@ -248,36 +256,61 @@ def create_model(x_train, y_train, x_test, y_test):
 
     num_classes = 31
     decoder_inputs = Input(shape=(None, num_classes))
-    decoder_lstm = LSTM(512 * 2, return_sequences=True, return_state=True)
+    decoder_lstm = LSTM(latent_dim * 2, return_sequences=True, return_state=True, dropout=dropout_rate, recurrent_dropout=recurrent_dropout)
     decoder_outputs, _, _ = decoder_lstm(decoder_inputs, initial_state=encoder_states)
 
     # no attention mechanism
-    decoder_dense = Dense(num_classes, activation='softmax')
+    decoder_dense = Dense(num_classes, activation=activation)
     decoder_pred = decoder_dense(decoder_outputs)
 
     model = Model([encoder_inputs, decoder_inputs], decoder_pred)
-    model.compile(optimizer=optimizers.Adam(lr={{choice([0.1, 0.01])}}, decay={{choice([0.1, 0.2])}}),
-                  loss='categorical_crossentropy', metrics=['accuracy'])
 
-    result = model.fit([x_train, x_test], x_test,
-              batch_size={{choice([40, 60])}},
-              epochs=3,
-              verbose=1,
-              validation_split=0.1)
-    #get the highest validation accuracy of the training epochs
-    validation_acc = np.amax(result.history['val_acc'])
-    print('Best validation acc of epoch:', validation_acc)
-    return {'loss': -validation_acc, 'status': STATUS_OK, 'model': model}
+    if optimizer == 'adam':
+        model.compile(optimizer=optimizers.Adam(lr=learning_rate, decay=decay),
+                  loss='categorical_crossentropy', metrics=['accuracy'])
+    if optimizer == 'sgd':
+        model.compile(optimizer=optimizers.SGD(lr=learning_rate, decay=decay),
+                  loss='categorical_crossentropy', metrics=['accuracy'])
+    if optimizer == 'rmsprop':
+        model.compile(optimizer=optimizers.RMSprop(lr=learning_rate, decay=decay),
+                      loss='categorical_crossentropy', metrics=['accuracy'])
+
+    batch_size = {{choice([20, 40, 60, 80, 100])}}
+    epochs = {{choice([5, 10, 20, 50, 100, 200])}}
+
+    print("Model config:")
+    print(model.get_config())
+
+    try:
+
+        result = model.fit([x_train, x_test], x_test,
+                           batch_size=batch_size,
+                           epochs=epochs,
+                           verbose=1,
+                           validation_split=0.1)
+
+        # get the highest validation accuracy of the training epochs
+        validation_acc = np.amax(result.history['val_acc'])
+        validation_loss = np.amax(result.history['val_loss'])
+        print('Best validation acc of epoch:', validation_acc)
+        return {'loss': validation_loss, 'status': STATUS_OK, 'model': model}
+
+    except Exception as e:
+        print("Error training with this model config!")
+        print(e)
+        K.clear_session()
+        pass
 
 
 if __name__ == '__main__':
     best_run, best_model = optim.minimize(model=create_model,
                                           data=data,
                                           algo=tpe.suggest,
-                                          max_evals=5,
+                                          max_evals=25,
                                           trials=Trials())
+
     x_train, y_train, x_test, y_test = data()
-    print("Evalutation of best performing model:")
+    print("Evaluation of best performing model:")
     print(best_model.evaluate([y_train, y_test], y_test))
     print("Best performing model chosen hyper-parameters:")
     print(best_run)
