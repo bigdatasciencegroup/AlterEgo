@@ -1,0 +1,27 @@
+Turn lights on
+Turn light on
+Turn light off
+Turn lights off
+Switch lights on
+Switch light on
+Switch light off
+Switch lights off
+Decrease temperature
+Increase temperature
+Decrease heating
+Increase heating
+Fetch newspaper
+Get newspaper
+Get shoes
+Can't hear
+Cannot hear
+Mute sound
+Mute volume
+Kitchen temperature down
+Kitchen temperature up
+Bedroom temperature down
+Bedroom temperature up
+Switch language to Chinese
+Switch language to German
+Switch language to Korean
+Switch language to English
