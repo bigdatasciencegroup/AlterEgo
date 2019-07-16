@@ -5,8 +5,8 @@ Data = train_sequences/3, center slice
 Batch size = 30
 Epochs = 300
 value = 1e-10
-Training loss:
-Val loss: 
+Training loss: 394.71
+Val loss: 372.12
 '''
 
 import os
@@ -157,10 +157,7 @@ test_labels = data.transform.pad_truncate(test_labels, max_labels_length, positi
 print("Number of classes: ", num_classes)
 print("Number of samples: ", np.shape(train_sequences)[0] + np.shape(test_sequences)[0])
 
-print(train_sequences.shape)
 _, train_sequences, _ = np.split(train_sequences, 3)
-print(train_sequences.shape)
-print(train_sequences[0])
 
 # Hyperparameters
 learning_rate = 0.001 # 0.001
@@ -189,7 +186,7 @@ model.add(LSTM(latent_dim, input_shape=(timesteps, n_features), activation='relu
 model.add(RepeatVector(timesteps)) # timesteps x latent_dim
 # model.add(LSTM(128, return_sequences=True))
 # model.add(LSTM(256, return_sequences=True))
-model.add(LSTM(latent_dim*2, return_sequences=True, activation='relu', recurrent_activation='relu')) # timesteps x latent_dim
+model.add(LSTM(latent_dim, return_sequences=True, activation='relu', recurrent_activation='relu')) # timesteps x latent_dim
 model.add(TimeDistributed(Dense(n_features))) # Creates a Dense layer of size latemt_dim and duplicates it n_features times 
 model.compile(optimizer=optimizers.Adam(lr=learning_rate), loss='mse')
 
