@@ -1,24 +1,12 @@
 '''
 Latent dim = 256
-
-All losses are nan
-
 Val split = 0.1
-Batch size = 50, 30, 20 (train_sequences/3, center slice)
-Training accuracy = 39.6, 39.6, 39.8
-Validation accuracy = 40, 40, 38.1
-
-Val split = 0.05
+Data = train_sequences/3, center slice
 Batch size = 30
-Training accuracy = 39.6
-Validation accuracy = 40
-
-Val split = 0.4
-Batch size = 30
-Training accuracy = 39.5
-Validation accuracy = 39.9
-
-394.7	372.
+Epochs = 300
+value = 1e-10
+Training loss:
+Val loss: 
 '''
 
 import os
@@ -175,9 +163,9 @@ print(train_sequences.shape)
 print(train_sequences[0])
 
 # Hyperparameters
-learning_rate = 0.01 # 0.001
+learning_rate = 0.001 # 0.001
 epochs = 300
-batch_size = 20 # 30 # 50
+batch_size = 30 # 20 # 50
 latent_dim = 256
 
 fold = 1
@@ -347,14 +335,14 @@ model.compile(optimizer=optimizers.Adam(lr=learning_rate), loss='mse')
 # timeString = time.strftime("%Y%m%d-%H%M%S", localtime)
 
 
-tensorboard = TensorBoard(log_dir="logs_CV/{}_f{}".format(log_name, str(fold)), histogram_freq=0, write_graph=True, write_images=True)
+tensorboard = TensorBoard(log_dir="logs_AE/{}_f{}".format(log_name, str(fold)), histogram_freq=0, write_graph=True, write_images=True)
 
 
 # model.fit(train_sequences, train_sequences, validation_split=0.1, epochs=epochs, batch_size=batch_size, 
 # 	callbacks=[tensorboard, training_callbacks], verbose=0)
 
 model_history = model.fit(train_sequences, train_sequences, validation_split=0.1,
-	epochs=epochs, batch_size=batch_size, verbose=2).history
+	callbacks = [tensorboard], epochs=epochs, batch_size=batch_size, verbose=2).history
 
 print(model.summary())
 result_file.write(model.summary())
