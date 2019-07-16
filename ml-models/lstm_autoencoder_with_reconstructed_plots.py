@@ -5,8 +5,8 @@ Data = train_sequences/3, center slice
 Batch size = 30
 Epochs = 300
 value = 1e-10
-Training loss:
-Val loss: 
+Training loss: 392.47
+Val loss: 267.46
 '''
 
 import os
@@ -169,7 +169,7 @@ print("Validation sequences shape :", val_sequences.shape)
 learning_rate = 0.001 # 0.001
 epochs = 300
 batch_size = 30 # 20 # 50
-latent_dim = 256
+latent_dim = 512 # 256
 
 fold = 1
 
@@ -186,14 +186,14 @@ result_file.write('epoch, training_loss, training_acc, max_validation_accuracy, 
 model = Sequential()
 timesteps = x # 1572
 n_features = len(config.channels)
-# model.add(LSTM(256, input_shape=(timesteps, n_features), return_sequences=True)) # try different activation functions, default is tanh
-# model.add(LSTM(128))
+
+# model.add(LSTM(latent_dim, input_shape=(timesteps, n_features), activation='relu'))
 model.add(LSTM(latent_dim, input_shape=(timesteps, n_features), activation='relu', recurrent_activation='relu')) # 1 x latent_dim
 model.add(RepeatVector(timesteps)) # timesteps x latent_dim
-# model.add(LSTM(128, return_sequences=True))
-# model.add(LSTM(256, return_sequences=True))
-model.add(LSTM(latent_dim*2, return_sequences=True, activation='relu', recurrent_activation='relu')) # timesteps x latent_dim
+# model.add(LSTM(latent_dim*2, return_sequences=True, activation='relu'))
+model.add(LSTM(latent_dim, return_sequences=True, activation='relu', recurrent_activation='relu')) # timesteps x latent_dim
 model.add(TimeDistributed(Dense(n_features))) # Creates a Dense layer of size latemt_dim and duplicates it n_features times 
+
 model.compile(optimizer=optimizers.Adam(lr=learning_rate), loss='mse')
 
 # # Table display
@@ -362,7 +362,7 @@ try:
     figure_name = 'figures/figure_AE_validation_{}'.format(timeString)
     plt.savefig(figure_name)
     plt.show()
-    
+
 
 except KeyboardInterrupt:
     # result_file.write(model.summary())
