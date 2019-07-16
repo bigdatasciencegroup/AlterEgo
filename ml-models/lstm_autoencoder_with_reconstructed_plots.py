@@ -347,6 +347,22 @@ tensorboard = TensorBoard(log_dir="logs_AE/{}_f{}".format(log_name, str(fold)), 
 try:
     model_history = model.fit(train_sequences, train_sequences, validation_data=(val_sequences, val_sequences),
         callbacks = [tensorboard], epochs=epochs, batch_size=batch_size, verbose=2).history
+    print(model.summary())
+    reconstructed_sequences = model.predict(val_sequences)
+    colors = ['gray', 'purple', 'blue', 'green', 'yellow', 'orange', 'red', 'brown']
+    shown = [7,9,10]
+    fig, axes = plt.subplots(len(shown), 2, figsize=(12, 4))
+    plt.subplots_adjust(left=0.04, right=0.96, bottom=0.08, top=0.92, wspace=0.10, hspace=0.35)
+    axes[0][0].set_title('Original Signal')
+    axes[0][1].set_title('Reconstructed Signal')
+    for i in range(len(shown)):
+        for c in range(8):
+            axes[i][0].plot(val_sequences[shown[i]][:,c], c=colors[c])
+            axes[i][1].plot(reconstructed_sequences[shown[i]][:,c], c=colors[c])
+    figure_name = 'figures/figure_AE_validation_{}'.format(timeString)
+    plt.savefig(figure_name)
+    plt.show()
+    
 
 except KeyboardInterrupt:
     # result_file.write(model.summary())
