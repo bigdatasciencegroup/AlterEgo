@@ -238,6 +238,8 @@ def create_model(x_train, y_train, x_test, y_test):
         - model: specify the model just created so that we can later use it again.
     """
 
+    K.clear_session()
+
     latent_dim = {{choice([128, 256, 512, 1024])}}
     activation = {{choice(['softmax', 'tanh', 'relu', 'sigmoid', 'linear'])}}
     dropout_rate = {{uniform(0, 1)}}
@@ -245,6 +247,18 @@ def create_model(x_train, y_train, x_test, y_test):
     learning_rate = {{uniform(0, 1)}}
     decay = {{uniform(0, 1)}}
     optimizer = {{choice(['rmsprop', 'adam', 'sgd'])}}
+    batch_size = {{choice([20, 40, 60, 80, 100])}}
+    epochs = {{choice([5, 10, 20, 50, 100, 200])}}
+
+    print('latent_dim:', latent_dim)
+    print('activation:', activation)
+    print('dropout rate:', dropout_rate)
+    print('recurrent dropout:', recurrent_dropout)
+    print('learning rate:', learning_rate)
+    print('decay:', decay)
+    print('optimizer:', optimizer)
+    print('batch size:', batch_size)
+    print('epochs:', epochs)
 
     encoder_inputs = Input(shape=(1572, len(config.channels)))
     encoder = Bidirectional(LSTM(latent_dim, return_state=True, return_sequences=True))
@@ -275,11 +289,8 @@ def create_model(x_train, y_train, x_test, y_test):
         model.compile(optimizer=optimizers.RMSprop(lr=learning_rate, decay=decay),
                       loss='categorical_crossentropy', metrics=['accuracy'])
 
-    batch_size = {{choice([20, 40, 60, 80, 100])}}
-    epochs = {{choice([5, 10, 20, 50, 100, 200])}}
-
-    print("Model config:")
-    print(model.get_config())
+    #print("Model config:")
+    #print(model.get_config())
 
     try:
 
@@ -293,7 +304,7 @@ def create_model(x_train, y_train, x_test, y_test):
         validation_acc = np.amax(result.history['val_acc'])
         validation_loss = np.amax(result.history['val_loss'])
         print('Best validation acc of epoch:', validation_acc)
-        return {'loss': validation_loss, 'status': STATUS_OK, 'model': model}
+        return {'loss': validation_loss, 'status': STATUS_OK}
 
     except Exception as e:
         print("Error training with this model config!")
@@ -306,11 +317,11 @@ if __name__ == '__main__':
     best_run, best_model = optim.minimize(model=create_model,
                                           data=data,
                                           algo=tpe.suggest,
-                                          max_evals=25,
+                                          max_evals=50,
                                           trials=Trials())
 
-    x_train, y_train, x_test, y_test = data()
-    print("Evaluation of best performing model:")
-    print(best_model.evaluate([y_train, y_test], y_test))
+    #x_train, y_train, x_test, y_test = data()
+    #print("Evaluation of best performing model:")
+    #print(best_model.evaluate([y_train, y_test], y_test))
     print("Best performing model chosen hyper-parameters:")
     print(best_run)
