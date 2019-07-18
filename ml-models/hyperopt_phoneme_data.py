@@ -1,6 +1,6 @@
 from __future__ import print_function
 import numpy as np
-from keras.utils import np_utils
+from tensorflow.python.keras.utils import np_utils
 from hyperas import optim
 from hyperas.distributions import choice, uniform
 import config
@@ -294,7 +294,7 @@ def create_model(x_train, y_train, x_test, y_test):
 
     try:
 
-        result = model.fit([x_train, x_test], x_test,
+        result = model.fit([x_train, x_test[:, :-1, :]], x_test[:, 1:, :],
                            batch_size=batch_size,
                            epochs=epochs,
                            verbose=1,
