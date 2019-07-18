@@ -10,7 +10,7 @@ import matplotlib
 from display_utils import DynamicConsoleTable
 import math
 import time
-import data
+import data_proc
 import config
 import json
 from attention_keras.layers.attention import AttentionLayer
@@ -37,9 +37,9 @@ def ricker_wavelet(n, sigma):
 def transform_data(sequence_groups, sample_rate=250):
     #### Apply DC offset and drift correction
     drift_low_freq = 0.5  # 0.5
-    sequence_groups = data.transform.subtract_initial(sequence_groups)
-    sequence_groups = data.transform.highpass_filter(sequence_groups, drift_low_freq, sample_rate)
-    sequence_groups = data.transform.subtract_mean(sequence_groups)
+    sequence_groups = data_proc.transform.subtract_initial(sequence_groups)
+    sequence_groups = data_proc.transform.highpass_filter(sequence_groups, drift_low_freq, sample_rate)
+    sequence_groups = data_proc.transform.subtract_mean(sequence_groups)
 
     #### Apply notch filters at multiples of notch_freq
     notch_freq = 60
@@ -47,7 +47,7 @@ def transform_data(sequence_groups, sample_rate=250):
     freqs = map(int, map(round, np.arange(1, sample_rate / (2. * notch_freq)) * notch_freq))
     for _ in range(num_times):
         for f in reversed(freqs):
-            sequence_groups = data.transform.notch_filter(sequence_groups, f, sample_rate)
+            sequence_groups = data_proc.transform.notch_filter(sequence_groups, f, sample_rate)
 
     #### Apply standard deviation normalization
     # sequence_groups = data.transform.normalize_std(sequence_groups)
@@ -56,7 +56,7 @@ def transform_data(sequence_groups, sample_rate=250):
     ricker_width = 35 * sample_rate // 250
     ricker_sigma = 4.0 * sample_rate / 250
     ricker_kernel = normalize_kernel(ricker_wavelet(ricker_width, ricker_sigma))
-    ricker_convolved = data.transform.correlate(sequence_groups, ricker_kernel)
+    ricker_convolved = data_proc.transform.correlate(sequence_groups, ricker_kernel)
     ricker_subtraction_multiplier = 2.0
     sequence_groups = sequence_groups - ricker_subtraction_multiplier * ricker_convolved
 
@@ -70,7 +70,7 @@ def transform_data(sequence_groups, sample_rate=250):
     order = 1
 
     #### Apply soft bandpassing
-    sequence_groups = data.transform.bandpass_filter(sequence_groups, low_freq, high_freq, sample_rate, order=order)
+    sequence_groups = data_proc.transform.bandpass_filter(sequence_groups, low_freq, high_freq, sample_rate, order=order)
 
     #### Apply hard bandpassing
     # sequence_groups = data.transform.fft(sequence_groups)
@@ -88,45 +88,52 @@ test_files = []
 for data_file in input_data:
     if data_file['type'] == 'phonemes_utkarsh':
         if 'train' in data_file['filename']:
-            train_file = data.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
+            train_file = data_proc.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
                                        sample_rate=config.sample_rate, surrounding=config.surrounding, exclude=set([]),
                                        num_classes=config.num_classes)
             training_files.append(train_file)
         if 'test' in data_file['filename']:
-            test_file = data.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
+            test_file = data_proc.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
                                        sample_rate=config.sample_rate, surrounding=config.surrounding,
                                        exclude=set([]), num_classes=config.num_classes)
             test_files.append(test_file)
 
-training_sequence_groups = data.combine(training_files)
-test_sequence_groups = data.combine(test_files)
+print "Combining input files..."
+training_sequence_groups = data_proc.combine(training_files)
+test_sequence_groups = data_proc.combine(test_files)
 
 print("Training sequences:")
 print(len(training_sequence_groups), " sequences")
-lens = map(len, data.get_inputs(training_sequence_groups)[0])
+lens = map(len, data_proc.get_inputs(training_sequence_groups)[0])
 print min(lens), np.mean(lens), max(lens)
 
 print("Validation sequences:")
 print(len(test_sequence_groups), "sequences")
-lens = map(len, data.get_inputs(test_sequence_groups)[0])
+lens = map(len, data_proc.get_inputs(test_sequence_groups)[0])
 print min(lens), np.mean(lens), max(lens)
 
 # Format into sequences and labels
-train_sequences, train_labels = data.get_inputs(training_sequence_groups)
-test_sequences, test_labels = data.get_inputs(test_sequence_groups)
+train_sequences, train_labels = data_proc.get_inputs(training_sequence_groups)
+test_sequences, test_labels = data_proc.get_inputs(test_sequence_groups)
+print(train_sequences.shape)
+print(test_sequences.shape)
+print(test_labels)
+print("...")
+
 
 train_sequences = transform_data(train_sequences)
 test_sequences = transform_data(test_sequences)
 
 label_map = config.phoneme_label_map
 print("Label map:", len(label_map))
+
 num_classes = len(np.unique(reduce(lambda a,b: a+b, label_map))) + 2 #(for start and end symbols)
 start_symbol = num_classes - 2
 end_symbol = num_classes - 1
 
-
 label_map = map(lambda label_seq: [start_symbol] + label_seq + [end_symbol], label_map)
 label_map = map(lambda label_seq: tf.keras.utils.to_categorical(label_seq, num_classes=num_classes), label_map)
+
 
 train_labels = np.array(map(lambda i: label_map[i], train_labels))
 test_labels = np.array(map(lambda i: label_map[i], test_labels))
@@ -134,10 +141,10 @@ test_labels = np.array(map(lambda i: label_map[i], test_labels))
 max_input_length = max(map(len, train_sequences) + map(len, test_sequences))
 max_labels_length = max(map(len, train_labels) + map(len, test_labels))
 
-train_sequences = data.transform.pad_truncate(train_sequences, max_input_length, position=0.0, value=-1e8)
-test_sequences = data.transform.pad_truncate(test_sequences, max_input_length, position=0.0, value=-1e8)
-train_labels = data.transform.pad_truncate(train_labels, max_labels_length, position=0.0, value=0)
-test_labels = data.transform.pad_truncate(test_labels, max_labels_length, position=0.0, value=0)
+train_sequences = data_proc.transform.pad_truncate(train_sequences, max_input_length, position=0.0, value=-1e8)
+test_sequences = data_proc.transform.pad_truncate(test_sequences, max_input_length, position=0.0, value=-1e8)
+train_labels = data_proc.transform.pad_truncate(train_labels, max_labels_length, position=0.0, value=0)
+test_labels = data_proc.transform.pad_truncate(test_labels, max_labels_length, position=0.0, value=0)
 
 print("Number of classes: ", num_classes)
 print("Number of samples: ", np.shape(train_sequences)[0] + np.shape(test_sequences)[0])
@@ -215,11 +222,11 @@ for fold in list(range(config.num_folds)):
         attn_outputs, attn_states = attn_layer([encoder_outputs, decoder_outputs])
 
         decoder_concat_input = Concatenate(axis=-1, name='concat_layer')([decoder_outputs, attn_outputs])
-        decoder_dense = Dense(num_classes, activation='softmax')
+        decoder_dense = Dense(num_classes, activation=config.activation_function)
         decoder_pred = decoder_dense(decoder_concat_input)
     else:
         # no attention mechanism
-        decoder_dense = Dense(num_classes, activation='softmax')
+        decoder_dense = Dense(num_classes, activation=config.activation_function)
         decoder_pred = decoder_dense(decoder_outputs)
 
     model = Model([encoder_inputs, decoder_inputs], decoder_pred)
@@ -377,7 +384,6 @@ for fold in list(range(config.num_folds)):
 
     training_callbacks = TrainingCallbacks()
 
-
     fetches = [tf.assign(training_callbacks.batch_targets, model.targets[0], validate_shape=False),
                tf.assign(training_callbacks.batch_outputs, model.outputs[0], validate_shape=False)]
     model._function_kwargs = {'fetches': fetches}
@@ -396,24 +402,25 @@ for fold in list(range(config.num_folds)):
         model.fit([train_sequences, train_labels[:, :-1, :]], train_labels[:, 1:, :],
                   validation_split=0.1,
                   batch_size=config.batch_size, epochs=config.num_epochs,
-                  callbacks=[tensorboard, training_callbacks, es, mc], verbose=0)
+                  callbacks=[tensorboard, training_callbacks, es, mc], verbose=2)
         # evaluate the saved best model of this fold on the test set (is stopping early)
         best_model = load_model('best_model_f{}.h5'.format(fold))
         scores = best_model.evaluate([test_sequences, test_labels], test_labels, verbose=0)
         print("Fold %i %s on test: %.2f%%" % (fold, best_model.metrics_names[1], scores[1] * 100))
-        result_file.write("Fold %i %s on test: %.2f%%" % (fold, best_model.metrics_names[1], scores[1] * 100))
+        result_file.write("Fold %i %s on test: %.2f%%\n" % (fold, best_model.metrics_names[1], scores[1] * 100))
         cvscores.append(scores[1] * 100)
 
     else:
         # todo: why this shape for the labels??
-        model.fit([train_sequences, train_labels[:, :-1, :]], train_labels[:, 1:, :],
+        #model.fit([train_sequences, train_labels[:, :-1, :]], train_labels[:, 1:, :],
+        model.fit([train_sequences, train_labels], train_labels,
                   validation_split=0.1,
                   batch_size=config.batch_size, epochs=config.num_epochs,
-                  callbacks=[tensorboard, training_callbacks], verbose=0)
+                  callbacks=[tensorboard, training_callbacks], verbose=2)
         # evaluate on the last model
-        scores = model.evaluate([test_sequences, test_labels], test_labels, verbose=0)
+        scores = model.evaluate([test_sequences, test_labels], test_labels, verbose=2)
         print("Fold %i %s on test: %.2f%%" % (fold, model.metrics_names[1], scores[1] * 100))
-        result_file.write("Fold %i %s on test: %.2f%%" % (fold, model.metrics_names[1], scores[1] * 100))
+        result_file.write("Fold %i %s on test: %.2f%%\n" % (fold, model.metrics_names[1], scores[1] * 100))
         cvscores.append(scores[1] * 100)
 
     model.summary(print_fn=lambda x: result_file.write(x + '\n'))
