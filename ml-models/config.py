@@ -1,8 +1,8 @@
 # DATA CONFIG
 
-data_maps = './data/data_maps.json'
+data_maps = './data_proc/data_maps.json'
 # location of raw EMG files
-file_path = './data/raw_data/'
+file_path = './data_proc/raw_data/'
 
 channels = range(0, 8)
 surrounding = 250
@@ -13,16 +13,20 @@ num_classes = 4757
 # MODEL CONFIG
 model = ""  # lstm, bilstm, bi-att
 
-num_epochs = 200 # 200, 20000
-batch_size = 80 # 50
-learning_rate = 0.01 # 0.001, 0.0001
-decay = 0.2
-latent_dim = 128 # 128, 256
+num_epochs = 50 # 10 # 200, 20000
+batch_size = 20 # 80 # 50
+learning_rate = 0.12090219121 # 0.515 # 0.01 # 0.001, 0.0001
+decay = 0.209467747005 # 0.425 # 0.2
+latent_dim = 128 # 512 # 128 # 128, 256
 with_attention = False
+dropout_rate = 0.765793363516 # 0.434
+recurrent_dropout_rate = 0.744629050673 # 0.6975
+early_stopping = False
+activation = 'sigmoid'
 
 # EVAL CONFIG
 # if num_folds = 1, then original train/test split is kept
-num_folds = 5
+num_folds = 1 # 5
 
 
 # LABEL MAP for phoneme dataset, July 2019
