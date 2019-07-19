@@ -13,7 +13,7 @@ import matplotlib
 from display_utils import DynamicConsoleTable
 import math
 import time
-import data_proc
+import data
 import config
 import json
 # from attention_keras.layers.attention import AttentionLayer
@@ -182,50 +182,6 @@ result_file = open(log_name + ".txt", "w")
 result_file.write('# HYPERPARAMETERS:\nepochs:{}\nbatch size:{}\nlatent dim:{}\nlearning rate:{}\ndecay:{}\nattention:{}\nearly stopping:{}\nfolds:{}\n'.format(config.num_epochs, config.batch_size, config.latent_dim, config.learning_rate, config.decay, config.with_attention, config.early_stopping, config.num_folds))
 result_file.write('epoch, training_loss, training_acc, max_validation_accuracy, val_loss, validation_accuracy\n')
 
-
-# Model: BiLSTM encoder, LSTM decoder
-# todo: run grid search to define hyperparameters
-# todo: test dropout
-# dropout_rate = 0.4
-encoder_inputs = Input(shape=(None, len(config.channels)))
-encoder = Bidirectional(LSTM(config.latent_dim, return_state=True, return_sequences=False))
-encoder_outputs, forward_h, forward_c, backward_h, backward_c = encoder(encoder_inputs)
-
-state_h = Concatenate()([forward_h, backward_h])
-state_c = Concatenate()([forward_c, backward_c])
-encoder_states = [state_h, state_c]
-
-decoder_inputs = Input(shape=(None, num_classes))
-decoder_lstm = LSTM(config.latent_dim * 2, return_sequences=True, return_state=True, dropout=config.dropout_rate, recurrent_dropout=config.recurrent_dropout_rate)
-decoder_outputs, _, _ = decoder_lstm(decoder_inputs, initial_state=encoder_states)
-
-if config.with_attention is True:
-    # Using Bahdanau attention for MT: https://arxiv.org/pdf/1409.0473.pdf
-    # Code from: https://github.com/thushv89/attention_keras
-    attn_layer = AttentionLayer(name='attention_layer')
-    attn_outputs, attn_states = attn_layer([encoder_outputs, decoder_outputs])
-
-    decoder_concat_input = Concatenate(axis=-1, name='concat_layer')([decoder_outputs, attn_outputs])
-    decoder_dense = Dense(num_classes, activation=config.activation)
-    decoder_outputs = decoder_dense(decoder_concat_input)
-else:
-    # no attention mechanism
-    decoder_dense = Dense(num_classes, activation=config.activation)
-    decoder_outputs = decoder_dense(decoder_outputs)
-
-model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
-model.compile(optimizer=optimizers.Adam(lr=config.learning_rate, decay=config.decay), loss='categorical_crossentropy', metrics=['accuracy'])
-
-encoder_model = Model(encoder_inputs, encoder_states)
-
-decoder_state_input_h = Input(shape=(config.latent_dim * 2,))
-decoder_state_input_c = Input(shape=(config.latent_dim * 2,))
-decoder_states_inputs = [decoder_state_input_h, decoder_state_input_c]
-decoder_outputs, state_h, state_c = decoder_lstm(decoder_inputs, initial_state=decoder_states_inputs)
-decoder_states = [state_h, state_c]
-decoder_outputs = decoder_dense(decoder_outputs)
-decoder_model = Model([decoder_inputs] + decoder_states_inputs, [decoder_outputs] + decoder_states)
-
 # Cross validation
 cvscores = []
 
@@ -246,6 +202,49 @@ try:
         else:
             print("Training:", len(train_sequences))
             print("Testing:", len(test_sequences))
+
+        # Model: BiLSTM encoder, LSTM decoder
+        # todo: run grid search to define hyperparameters
+        # todo: test dropout
+        # dropout_rate = 0.4
+        encoder_inputs = Input(shape=(None, len(config.channels)))
+        encoder = Bidirectional(LSTM(config.latent_dim, return_state=True, return_sequences=False))
+        encoder_outputs, forward_h, forward_c, backward_h, backward_c = encoder(encoder_inputs)
+
+        state_h = Concatenate()([forward_h, backward_h])
+        state_c = Concatenate()([forward_c, backward_c])
+        encoder_states = [state_h, state_c]
+
+        decoder_inputs = Input(shape=(None, num_classes))
+        decoder_lstm = LSTM(config.latent_dim * 2, return_sequences=True, return_state=True, dropout=config.dropout_rate, recurrent_dropout=config.recurrent_dropout_rate)
+        decoder_outputs, _, _ = decoder_lstm(decoder_inputs, initial_state=encoder_states)
+
+        if config.with_attention is True:
+            # Using Bahdanau attention for MT: https://arxiv.org/pdf/1409.0473.pdf
+            # Code from: https://github.com/thushv89/attention_keras
+            attn_layer = AttentionLayer(name='attention_layer')
+            attn_outputs, attn_states = attn_layer([encoder_outputs, decoder_outputs])
+
+            decoder_concat_input = Concatenate(axis=-1, name='concat_layer')([decoder_outputs, attn_outputs])
+            decoder_dense = Dense(num_classes, activation=config.activation)
+            decoder_outputs = decoder_dense(decoder_concat_input)
+        else:
+            # no attention mechanism
+            decoder_dense = Dense(num_classes, activation=config.activation)
+            decoder_outputs = decoder_dense(decoder_outputs)
+
+        model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
+        model.compile(optimizer=optimizers.Adam(lr=config.learning_rate, decay=config.decay), loss='categorical_crossentropy', metrics=['accuracy'])
+
+        encoder_model = Model(encoder_inputs, encoder_states)
+
+        decoder_state_input_h = Input(shape=(config.latent_dim * 2,))
+        decoder_state_input_c = Input(shape=(config.latent_dim * 2,))
+        decoder_states_inputs = [decoder_state_input_h, decoder_state_input_c]
+        decoder_outputs, state_h, state_c = decoder_lstm(decoder_inputs, initial_state=decoder_states_inputs)
+        decoder_states = [state_h, state_c]
+        decoder_outputs = decoder_dense(decoder_outputs)
+        decoder_model = Model([decoder_inputs] + decoder_states_inputs, [decoder_outputs] + decoder_states)
 
         num_training_samples = len(train_sequences)
         num_validation_samples = len(test_sequences)
