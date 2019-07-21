@@ -17,7 +17,7 @@ import json
 
 # Local imports
 import config
-import data_proc
+import data
 
 def normalize_kernel(kernel, subtract_mean=False):
     if subtract_mean:
@@ -37,9 +37,9 @@ def ricker_wavelet(n, sigma):
 def transform_data(sequence_groups, sample_rate=250):
     #### Apply DC offset and drift correction
     drift_low_freq = 0.5  # 0.5
-    sequence_groups = data.transform.subtract_initial(sequence_groups)
-    sequence_groups = data.transform.highpass_filter(sequence_groups, drift_low_freq, sample_rate)
-    sequence_groups = data.transform.subtract_mean(sequence_groups)
+    sequence_groups = data_proc.transform.subtract_initial(sequence_groups)
+    sequence_groups = data_proc.transform.highpass_filter(sequence_groups, drift_low_freq, sample_rate)
+    sequence_groups = data_proc.transform.subtract_mean(sequence_groups)
 
     #### Apply notch filters at multiples of notch_freq
     notch_freq = 60
@@ -47,35 +47,35 @@ def transform_data(sequence_groups, sample_rate=250):
     freqs = map(int, map(round, np.arange(1, sample_rate / (2. * notch_freq)) * notch_freq))
     for _ in range(num_times):
         for f in reversed(freqs):
-            sequence_groups = data.transform.notch_filter(sequence_groups, f, sample_rate)
+            sequence_groups = data_proc.transform.notch_filter(sequence_groups, f, sample_rate)
 
     #### Apply standard deviation normalization
-    # sequence_groups = data.transform.normalize_std(sequence_groups)
+    # sequence_groups = data_proc.transform.normalize_std(sequence_groups)
 
     #### Apply ricker wavelet subtraction
     ricker_width = 35 * sample_rate // 250
     ricker_sigma = 4.0 * sample_rate / 250
     ricker_kernel = normalize_kernel(ricker_wavelet(ricker_width, ricker_sigma))
-    ricker_convolved = data.transform.correlate(sequence_groups, ricker_kernel)
+    ricker_convolved = data_proc.transform.correlate(sequence_groups, ricker_kernel)
     ricker_subtraction_multiplier = 2.0
     sequence_groups = sequence_groups - ricker_subtraction_multiplier * ricker_convolved
 
     #### Apply sine wavelet kernel
     # period = int(sample_rate)
     # sin_kernel = normalize_kernel(np.sin(np.arange(period)/float(period) * 1*np.pi), subtract_mean=True)
-    # sequence_groups = data.transform.correlate(sequence_groups, sin_kernel)
+    # sequence_groups = data_proc.transform.correlate(sequence_groups, sin_kernel)
 
     low_freq = 0.5  # 0.5
     high_freq = 8  # 8
     order = 1
 
     #### Apply soft bandpassing
-    sequence_groups = data.transform.bandpass_filter(sequence_groups, low_freq, high_freq, sample_rate, order=order)
+    sequence_groups = data_proc.transform.bandpass_filter(sequence_groups, low_freq, high_freq, sample_rate, order=order)
 
     #### Apply hard bandpassing
-    # sequence_groups = data.transform.fft(sequence_groups)
-    # sequence_groups = data.transform.fft_frequency_cutoff(sequence_groups, low_freq, high_freq, sample_rate)
-    # sequence_groups = np.real(data.transform.ifft(sequence_groups))
+    # sequence_groups = data_proc.transform.fft(sequence_groups)
+    # sequence_groups = data_proc.transform.fft_frequency_cutoff(sequence_groups, low_freq, high_freq, sample_rate)
+    # sequence_groups = np.real(data_proc.transform.ifft(sequence_groups))
     #
     return sequence_groups
 
@@ -88,32 +88,32 @@ test_files = []
 for data_file in input_data:
     if data_file['type'] == 'phonemes_utkarsh':
         if 'train' in data_file['filename']:
-            train_file = data.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
+            train_file = data_proc.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
                                        sample_rate=config.sample_rate, surrounding=config.surrounding, exclude=set([]),
                                        num_classes=config.num_classes)
             training_files.append(train_file)
         if 'test' in data_file['filename']:
-            test_file = data.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
+            test_file = data_proc.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
                                        sample_rate=config.sample_rate, surrounding=config.surrounding,
                                        exclude=set([]), num_classes=config.num_classes)
             test_files.append(test_file)
 
-training_sequence_groups = data.combine(training_files)
-test_sequence_groups = data.combine(test_files)
+training_sequence_groups = data_proc.combine(training_files)
+test_sequence_groups = data_proc.combine(test_files)
 
 print("Training sequences:")
 print(len(training_sequence_groups), " sequences")
-lens = map(len, data.get_inputs(training_sequence_groups)[0])
+lens = map(len, data_proc.get_inputs(training_sequence_groups)[0])
 print min(lens), np.mean(lens), max(lens)
 
 print("Validation sequences:")
 print(len(test_sequence_groups), "sequences")
-lens = map(len, data.get_inputs(test_sequence_groups)[0])
+lens = map(len, data_proc.get_inputs(test_sequence_groups)[0])
 print min(lens), np.mean(lens), max(lens)
 
 # Format into sequences and labels
-train_sequences, train_labels = data.get_inputs(training_sequence_groups)
-test_sequences, test_labels = data.get_inputs(test_sequence_groups)
+train_sequences, train_labels = data_proc.get_inputs(training_sequence_groups)
+test_sequences, test_labels = data_proc.get_inputs(test_sequence_groups)
 
 train_sequences = transform_data(train_sequences)
 test_sequences = transform_data(test_sequences)
@@ -134,16 +134,15 @@ test_labels = np.array(map(lambda i: label_map[i], test_labels))
 max_input_length = max(map(len, train_sequences) + map(len, test_sequences))
 max_labels_length = max(map(len, train_labels) + map(len, test_labels))
 
-train_sequences = data.transform.pad_truncate(train_sequences, max_input_length, position=0.0, value=-1e8)
-test_sequences = data.transform.pad_truncate(test_sequences, max_input_length, position=0.0, value=-1e8)
-train_labels = data.transform.pad_truncate(train_labels, max_labels_length, position=0.0, value=0)
-test_labels = data.transform.pad_truncate(test_labels, max_labels_length, position=0.0, value=0)
+train_sequences = data_proc.transform.pad_truncate(train_sequences, max_input_length, position=0.0, value=-1e8)
+test_sequences = data_proc.transform.pad_truncate(test_sequences, max_input_length, position=0.0, value=-1e8)
+train_labels = data_proc.transform.pad_truncate(train_labels, max_labels_length, position=0.0, value=0)
+test_labels = data_proc.transform.pad_truncate(test_labels, max_labels_length, position=0.0, value=0)
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
 
 def decode_sequence(input_seq):
 	input_seq = np.expand_dims(input_seq, 0)
-	print('Shape of input_seq :', np.shape(input_seq))
 	states_value = encoder_model.predict(input_seq) # Encoder states
 
 	# Generate empty target sequence of length 1
@@ -229,38 +228,46 @@ def plot_confusion_matrix(y_true, y_pred, classes, normalize=False, title=None, 
 # --------------------------------------------------------------------------------------------------------------------------------------------
 
 print(test_labels.shape)
-print(test_labels)
 
-log_name = 'best_model_f0' # Enter the model name to be loaded
-model = load_model('SavedModels/Full{}.h5'.format(log_name))
+# Loading the models
+log_name = '20190719-234522_e2_b20_phon_bidir_utkarsh_CV' # Enter the model name to be loaded
+model = load_model('SavedModels/Full_{}.h5'.format(log_name))
 encoder_model = load_model('SavedModels/Encoder_{}.h5'.format(log_name))
 decoder_model = load_model('SavedModels/Decoder_{}.h5'.format(log_name))
 
-test_index = 0
-print list(np.argmax(test_labels[test_index], axis=1))
-print decode_sequence(test_sequences[test_index])
+counter = 0 # Tracks number of predictions with same length as actual target
+y_test, y_pred = [], []
 
-# Check the above prints
-# Convert labels to 0 to 31 -> y_test, y_pred
-# Follow down
+for test_index in range(len(test_sequences)):
+	# print 'TEST INDEX :', test_index
+	# print list(np.argmax(test_labels[test_index], axis=1))
+	# print decode_sequence(test_sequences[test_index])
+	# print '\n'
+	counter += 1
+	actual = list(np.argmax(test_labels[test_index], axis=1))
+	predicted = decode_sequence(test_sequences[test_index])
+	if (len(actual) == len(predicted)):
+		for index in range(len(actual)):
+			y_test.append(actual[index])
+			y_pred.append(predicted[index])
 
-# y_test = []
-# y_pred = []
+print('Number of predicted sequences with equal length as target labels : {} out of {}'.format(counter, len(test_sequences)))
 
-# for test_index in range(len(test_sequences)):
-# 	y_test.append(list(np.argmax(test_labels[test_index], axis=1)))
-# 	y_pred.aooend(decode_sequence(test_sequences[test_index]))
+np.set_printoptions(precision=2)
+class_names = ['<start>', 'AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'EH', 'ER', 'EY', 'IH', 'IY', 'OW', 'UW', 'CH', 'D', 'G', 'HH', 'JH', 'K', 'L', 'N', 'NG', 'R', 'S', 'SH', 'T', 'TH', 'Y', 'Z', '<end>']
 
-# np.set_printoptions(precision=2)
+# Mapping numbers to actual class names
+for index, element in enumerate(y_test):	y_test[index] = class_names[element]
+for index, element in enumerate(y_pred):	y_pred[index] = class_names[element]
 
-# # Plot non-normalized confusion matrix
-# plot_confusion_matrix(y_test, y_pred, classes=class_names,
-#                       title='Confusion matrix, without normalization')
+# Plot non-normalized confusion matrix
+plot_confusion_matrix(y_test, y_pred, classes=class_names,
+                      title='Confusion matrix, without normalization')
 
-# # Plot normalized confusion matrix
-# plot_confusion_matrix(y_test, y_pred, classes=class_names, normalize=True,
-#                       title='Normalized confusion matrix')
+# Plot normalized confusion matrix
+plot_confusion_matrix(y_test, y_pred, classes=class_names, normalize=True,
+                      title='Normalized confusion matrix')
 
-# plt.show()
+plt.show()
 
 
