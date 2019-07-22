@@ -157,8 +157,8 @@ def greedy_decode(input_seq):
 	decoded_sequence = [start_symbol] # [29]
 	while not stop_condition:
 		output_tokens, h, c = decoder_model.predict([target_seq] + states_value) # Takes in target_seq and Encoder states
-		# print('OUTPUT TOKENS:', output_tokens)
-		# print('SUM:', np.sum(output_tokens))
+		print('OUTPUT TOKENS:', output_tokens)
+		print('SUM:', np.sum(output_tokens))
 
 		# Sample a token
 		sampled_token_index = np.argmax(output_tokens[0, -1, :]) # Greedy search decoding
@@ -232,13 +232,18 @@ def plot_confusion_matrix(y_true, y_pred, classes, normalize=False, title=None, 
 
 print('TEST LABELS SHAPE:', test_labels.shape)
 
+# Enter the model name to be loaded
+log_name = '20190722-154536_e2_b20_phon_bidir_utkarsh_CV' # Softmax
+# log_name = '20190722-145807_e2_b20_phon_bidir_utkarsh_CV' # Relu
+# log_name = '20190719-234522_e2_b20_phon_bidir_utkarsh_CV' # Sigmoid
+
 # Loading the models
-log_name = '20190719-234522_e2_b20_phon_bidir_utkarsh_CV' # Enter the model name to be loaded
 model = load_model('SavedModels/Full_{}.h5'.format(log_name))
 encoder_model = load_model('SavedModels/Encoder_{}.h5'.format(log_name))
 decoder_model = load_model('SavedModels/Decoder_{}.h5'.format(log_name))
 
 '''
+# Checking the outputs
 test_index = 0
 print 'TEST INDEX :', test_index
 print list(np.argmax(test_labels[test_index], axis=1))
@@ -250,6 +255,7 @@ print list(np.argmax(test_labels[test_index], axis=1))
 print greedy_decode(test_sequences[test_index])
 
 '''
+# Plotting Confusion matrix
 counter = 0 # Tracks number of predictions with same length as actual target
 y_test, y_pred = [], []
 
@@ -261,6 +267,7 @@ for test_index in range(len(test_sequences)):
 		for index in range(len(actual)):
 			y_test.append(actual[index])
 			y_pred.append(predicted[index])
+
 
 print('Number of predicted sequences with equal length as target labels : {} out of {}'.format(counter, len(test_sequences)))
 
