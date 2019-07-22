@@ -157,8 +157,8 @@ def greedy_decode(input_seq):
 	decoded_sequence = [start_symbol] # [29]
 	while not stop_condition:
 		output_tokens, h, c = decoder_model.predict([target_seq] + states_value) # Takes in target_seq and Encoder states
-		print('OUTPUT TOKENS:', output_tokens)
-		print('SUM:', np.sum(output_tokens))
+		# print('OUTPUT TOKENS:', output_tokens)
+		# print('SUM:', np.sum(output_tokens))
 
 		# Sample a token
 		sampled_token_index = np.argmax(output_tokens[0, -1, :]) # Greedy search decoding
