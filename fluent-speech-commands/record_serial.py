@@ -15,7 +15,6 @@ import matplotlib.pyplot as plt
 import os
 
 import preprocessing
-from label_generator_for_record_serial import generate_labels
 
 channels = range(0, 8)  # Must be same as trained model if test_model==True
 
@@ -110,7 +109,7 @@ Recording Session Utkarsh 2:
 
 """
 
-labels = [273, 213, 14, 12, 121, 67, 94, 96, 56, 344, 117, 58, 287, 230, 138, 328, 109, 151, 71, 147, 285, 252, 347, 202, 199, 115, 77, 227, 150, 98, 45, 359, 317, 63, 348, 201, 126]
+labels = [108, 151, 328, 102, 352, 241, 207, 248, 256, 253, 11, 235, 370, 183, 97, 200, 119, 381, 36, 354, 1, 249, 374, 226, 389, 390, 106, 194, 375, 177, 308, 346, 180, 22, 250, 43, 188, 196, 267, 312]
 
 labels = labels + [-1]
 
