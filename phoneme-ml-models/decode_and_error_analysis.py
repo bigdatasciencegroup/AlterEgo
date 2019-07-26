@@ -409,12 +409,12 @@ def plot_confusion_matrix(y_true, y_pred, classes, normalize=False, title=None, 
     # Compute confusion matrix
     cm = confusion_matrix(y_true, y_pred)
     # Only use the labels that appear in the data
-    # classes = classes[unique_labels(y_true, y_pred)]
+    classes = classes[unique_labels(y_true, y_pred)]
     if normalize:
         cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-        print("Normalized confusion matrix")
+        print("Plotting Normalized confusion matrix")
     else:
-        print('Confusion matrix, without normalization')
+        print("Plotting Confusion matrix, without normalization")
 
     # print(cm)
 
@@ -478,39 +478,24 @@ y_true, y_pred = [], []
 
 for index in range(len(sequences)):
     if (actual_labels[index].shape == predicted_labels[index].shape):
-        for x in list(actual_labels[index]):    y_true.append(x)
-        for x in list(predicted_labels[index]):     y_pred.append(x)
+        for x in list(actual_labels[index]):
+            if x!=start_symbol and x!=end_symbol:       y_true.append(x)
+        for x in list(predicted_labels[index]):
+            if x!=start_symbol and x!=end_symbol:       y_pred.append(x)
         counter+=1
 y_true = np.array(y_true)
 y_pred = np.array(y_pred)
-print y_true.shape
 
-# print y_true
-# print '\n'
-# print np.array(y_true)
-# print '\n'
-# print len(y_true)
-# print '\n'
-# print y_pred
-# print '\n'
-# print np.array(y_pred)
-# print '\n'
-# print len(y_pred)
-
-print('Number of predicted sequences with equal length as target labels : {} out of {}'.format(counter, len(sequences)))
+print('Sequences considered for confusion matrix : {} out of {}'.format(counter, len(sequences)))
 
 np.set_printoptions(precision=2)
 
-# Mapping numbers to actual class names
-# for index, element in enumerate(y_true):    y_true[index] = class_names[element]
-# for index, element in enumerate(y_pred):    y_pred[index] = class_names[element]
-
 # Plot non-normalized confusion matrix
-plot_confusion_matrix(y_true, y_pred, classes=class_names,
+plot_confusion_matrix(y_true, y_pred, classes=np.array(class_names),
                       title='Confusion matrix, without normalization')
 
 # Plot normalized confusion matrix
-plot_confusion_matrix(y_true, y_pred, classes=class_names, normalize=True,
+plot_confusion_matrix(y_true, y_pred, classes=np.array(class_names), normalize=True,
                       title='Normalized confusion matrix')
 
 plt.show()
