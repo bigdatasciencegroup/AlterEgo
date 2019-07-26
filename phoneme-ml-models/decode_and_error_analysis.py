@@ -1,6 +1,6 @@
 import os
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 os.environ['KERAS_BACKEND'] = 'tensorflow'
 import numpy as np
 import tensorflow as tf
@@ -141,42 +141,172 @@ test_labels = data_proc.transform.pad_truncate(test_labels, max_labels_length, p
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
 
-def greedy_decode(input_seq):
-	input_seq = np.expand_dims(input_seq, 0)
-	states_value = encoder_model.predict(input_seq) # Encoder states
+def batch_greedy_decode(input_seq, max_decoder_seq_length=8):
+    '''
+    Performs batch greedy decode on the input_seq batch until max_decoder_seq_length while dynamically
+    pruning samples that've reached end_symbol already.
+    Returns final_predicted_labels (list of arrays) correspondong to input_seq
+    '''
+    print '\nDecoding.............................'
+    if input_seq.ndim==2:   input_seq = np.expand_dims(input_seq, 0)
+    samples = input_seq.shape[0]
 
-	# Generate empty target sequence of length 1
-	target_seq = np.zeros((1, 1, num_classes))
-	# Populate the first character of target sequence with the start character
-	target_seq[0, 0, start_symbol] = 1 # target_seq[0,0,29] = 1
+    states_value = encoder_model.predict(input_seq) # Encoder states
 
-	# Sampling loop for a batch of sequences
-	# To simplify, we assume a batch of size 1
-	stop_condition = False; 
-	max_decoder_seq_length = 8 # change to 5+2
-	decoded_sequence = [start_symbol] # [29]
-	while not stop_condition:
-		output_tokens, h, c = decoder_model.predict([target_seq] + states_value) # Takes in target_seq and Encoder states
-		# print('OUTPUT TOKENS:', output_tokens)
-		# print('SUM:', np.sum(output_tokens))
+    # Generate empty target sequence of length 1    
+    target_seq = np.zeros((samples, 1, num_classes))
+    target_seq[:, 0, start_symbol] = 1
 
-		# Sample a token
-		sampled_token_index = np.argmax(output_tokens[0, -1, :]) # Greedy search decoding
-		decoded_sequence.append(sampled_token_index) # [29,loc1]
+    decoded_seq_list = np.asarray([[start_symbol]]*samples) # completed seqs are dynamically pruned
+    output_seq_list = [] # completed seqs are dynamically appended
+    final_locations = np.empty(shape=(0,)) # will track corresponding locations for decoded sequences
+    sample_locations = np.arange(samples)
 
-		# Exit condition: either hit max length
-		# or find stop character
-		if (sampled_token_index == end_symbol or len(decoded_sequence) > max_decoder_seq_length):
-			stop_condition = True
+    i = 1
 
-		# Update the target sequence (of length 1)
-		target_seq = np.zeros((1, 1, num_classes))
-		target_seq[0, 0, sampled_token_index] = 1
+    while i<max_decoder_seq_length:
+        output_tokens, h, c = decoder_model.predict([target_seq] + states_value)
+        sampled_token_index = np.argmax(output_tokens[:, -1, :], axis=-1)
 
-		# Update states
-		states_value = [h, c]
+        decoded_seq_list = np.append(decoded_seq_list, np.expand_dims(sampled_token_index,1), axis=-1)
 
-	return decoded_sequence
+        if np.any(sampled_token_index[:]==end_symbol):
+            locations = np.where(sampled_token_index[:]==end_symbol)
+
+            # Appending
+            output_seq_list.append(decoded_seq_list[locations[0]])
+            final_locations = np.append(final_locations, sample_locations[locations[0]])
+            # final_locations = np.append(final_locations, locations[0])
+
+            # Pruning
+            decoded_seq_list = np.delete(decoded_seq_list, locations[0], axis=0) # remove completed sequences
+            sample_locations = np.delete(sample_locations, locations[0])
+            sampled_token_index = np.delete(sampled_token_index, locations[0]) # to update target_seq
+            h = np.delete(h, locations[0], axis=0) # fed into decoder
+            c = np.delete(c, locations[0], axis=0) # fed into decoder
+            
+            samples-=locations[0].shape[0]
+            if samples==0:
+                break
+
+        # Update the target sequence, fed into decoder
+        target_seq = np.zeros((samples, 1, num_classes))
+        target_seq[np.arange(samples), 0, sampled_token_index] = 1
+        
+        # Update states
+        states_value = [h, c]
+        i+=1
+
+    # All remaining (that didn't output end_symbol but reached max length)
+    output_seq_list.append(decoded_seq_list[:])
+    final_locations = np.append(final_locations, sample_locations[:])
+    
+    # print('FINAL LOCS', final_locations.shape)
+    # print(final_locations)
+
+    # output_seq_list is a list of 2d arrays with shapes (x,y) where both x and y are variables
+    # hence can't be concatenated together
+
+    predicted_labels = []
+    for i in output_seq_list:
+        for j in i:
+            if len(j)!=0:   predicted_labels.append(j) # to disregard empty array
+
+    # print('PREDICTED LABELS', len(predicted_labels))
+    # print(predicted_labels)
+
+    # predicted_labels is a list of 1d arrays with shape (x,) where x is variable
+    # But the final_locations aren't arranged yet
+
+    # Arranging predicted_labels into final_predicted_labels while sorting through final_locations
+    final_predicted_labels = []
+    for i in range(input_seq.shape[0]):
+        index = np.where(final_locations==i)[0]
+        final_predicted_labels.append(predicted_labels[index[0]])
+    
+    # print '\n', final_predicted_labels
+    print 'Decoding finished....................\n'
+
+    return final_predicted_labels
+
+'''
+def inefficient_batch_greedy_decode(input_seq, max_decoder_seq_length=8):
+    # inefficient since it doesn't dynalically prune and keeps decoding even after end_symbol
+    # all the way till specified max_decoder_seq_length
+    
+    if input_seq.ndim==2:   input_seq = np.expand_dims(input_seq, 0)
+    samples = input_seq.shape[0]
+
+    states_value = encoder_model.predict(input_seq) # Encoder states
+
+    # Generate empty target sequence of length 1    
+    target_seq = np.zeros((samples, 1, num_classes))
+    target_seq[:, 0, start_symbol] = 1
+
+    decoded_seq_list = np.asarray([[start_symbol]]*samples) # completed seqs are dynamically pruned
+    output_seq_list = [] # completed seqs are dynamically appended
+    # final_locations = np.empty(shape=(0,))
+
+    i = 1
+
+    while i<max_decoder_seq_length:
+        output_tokens, h, c = decoder_model.predict([target_seq] + states_value)
+        sampled_token_index = np.argmax(output_tokens[:, -1, :], axis=-1)
+
+        decoded_seq_list = np.append(decoded_seq_list, np.expand_dims(sampled_token_index,1), axis=-1)
+
+        # Update the target sequence, fed into decoder
+        target_seq = np.zeros((samples, 1, num_classes))
+        target_seq[np.arange(samples), 0, sampled_token_index] = 1
+        
+        # Update states
+        states_value = [h, c]
+        i+=1
+
+    print decoded_seq_list
+    print decoded_seq_list.shape
+
+    # predicted_labels is a list of 1d arrays with shape (x,) where x is variable
+    # But the final_locations aren't arranged yet
+
+    return predicted_labels
+'''
+
+def greedy_decode(input_seq, max_decoder_seq_length=8):
+    input_seq = np.expand_dims(input_seq, 0)
+    states_value = encoder_model.predict(input_seq) # Encoder states
+
+    # Generate empty target sequence of length 1
+    target_seq = np.zeros((1, 1, num_classes))
+    # Populate the first character of target sequence with the start character
+    target_seq[0, 0, start_symbol] = 1 # target_seq[0,0,29] = 1
+
+    # Sampling loop for a batch of sequences
+    # To simplify, we assume a batch of size 1
+    stop_condition = False
+    decoded_sequence = [start_symbol] # [29]
+    while not stop_condition:
+        output_tokens, h, c = decoder_model.predict([target_seq] + states_value) # Takes in target_seq and Encoder states
+        # print('OUTPUT TOKENS:', output_tokens)
+        # print('SUM:', np.sum(output_tokens))
+
+        # Sample a token
+        sampled_token_index = np.argmax(output_tokens[0, -1, :]) # Greedy search decoding
+        decoded_sequence.append(sampled_token_index) # [29,loc1]
+
+        # Exit condition: either hit max length
+        # or find stop character
+        if (sampled_token_index == end_symbol or len(decoded_sequence) > max_decoder_seq_length):
+            stop_condition = True
+
+        # Update the target sequence (of length 1)
+        target_seq = np.zeros((1, 1, num_classes))
+        target_seq[0, 0, sampled_token_index] = 1
+
+        # Update states
+        states_value = [h, c]
+
+    return decoded_sequence
 
 
 def beam_decode(input_seq, k=5, max_decoder_seq_length=10):
@@ -241,16 +371,17 @@ def beam_decode(input_seq, k=5, max_decoder_seq_length=10):
         i+=1
 
         # Delete finished branches
-        # to_be_deleted = []
-        # for a,b in zip(rows,cols):
-        #     if top_k_output_tokens_ind[a,b]==end_symbol:
-        #         output_seq_list.append(list(decoded_seq_list[a]))
-        #         output_probs_list.append(decoded_probs[a])
-        #         to_be_deleted.append(a)
+        to_be_deleted = []
+        for a,b in zip(rows,cols):
+            if top_k_output_tokens_ind[a,b]==end_symbol:
+                output_seq_list.append(list(decoded_seq_list[a]))
+                output_probs_list.append(decoded_probs[a])
+                to_be_deleted.append(a)
 
+        '''
         to_be_deleted = rows[np.where(top_k_output_tokens_ind[rows,cols]==end_symbol)]
         output_seq_list += decoded_seq_list[to_be_deleted]
-        output_probs_list += decode_probs[to_be_deleted]
+        output_probs_list += decode_probs[to_be_deleted]'''
 
         decoded_seq_list = np.delete(decoded_seq_list, to_be_deleted, axis=0)
         decoded_probs = np.delete(decoded_probs, to_be_deleted, axis=0)
@@ -278,14 +409,14 @@ def plot_confusion_matrix(y_true, y_pred, classes, normalize=False, title=None, 
     # Compute confusion matrix
     cm = confusion_matrix(y_true, y_pred)
     # Only use the labels that appear in the data
-    classes = classes[unique_labels(y_true, y_pred)]
+    # classes = classes[unique_labels(y_true, y_pred)]
     if normalize:
         cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
         print("Normalized confusion matrix")
     else:
         print('Confusion matrix, without normalization')
 
-    print(cm)
+    # print(cm)
 
     fig, ax = plt.subplots()
     im = ax.imshow(cm, interpolation='nearest', cmap=cmap)
@@ -314,14 +445,16 @@ def plot_confusion_matrix(y_true, y_pred, classes, normalize=False, title=None, 
     fig.tight_layout()
     return ax
 
+
 # --------------------------------------------------------------------------------------------------------------------------------------------
 
-print('TEST LABELS SHAPE:', test_labels.shape)
 
-
-# Enter the model name to be loaded
+# Enter the model name, sequences and labels
 log_name = '20190724-110527_e100_b80_phon_bidir_utkarsh_CV' # Max validation = 32.6%, Fold 0 acc on test: 14.34%
-
+# log_name = '20190719-234522_e2_b20_phon_bidir_utkarsh_CV' #2 epoch model
+sequences = train_sequences
+labels = train_labels
+class_names = ['AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'EH', 'ER', 'EY', 'IH', 'IY', 'OW', 'UW', 'CH', 'D', 'G', 'HH', 'JH', 'K', 'L', 'N', 'NG', 'R', 'S', 'SH', 'T', 'TH', 'Y', 'Z', '<start>', '<end>']
 
 # Loading the models
 model = load_model('SavedModels/Full_{}.h5'.format(log_name))
@@ -329,47 +462,55 @@ encoder_model = load_model('SavedModels/Encoder_{}.h5'.format(log_name))
 decoder_model = load_model('SavedModels/Decoder_{}.h5'.format(log_name))
 # print(model.metrics_tensors)
 
+actual_labels = list(np.argmax(labels, axis=-1))
+print '\nActual labels :', len(actual_labels)
+# print actual_labels
 
-test_index = 10
-print 'TEST INDEX :', test_index
-print list(np.argmax(test_labels[test_index], axis=1))
-print beam_decode(test_sequences[test_index])
-print greedy_decode(test_sequences[test_index])
+# predicted_labels = beam_decode(sequences)
+# predicted_labels = greedy_decode(sequences)
+predicted_labels = batch_greedy_decode(sequences)
+print 'Predicted labels :', len(predicted_labels)
+# print predicted_labels
 
 
 counter = 0 # Tracks number of predictions with same length as actual target
-y_test, y_pred = [], []
+y_true, y_pred = [], []
 
-for test_index in range(len(test_sequences)):
-	# print 'TEST INDEX :', test_index
-	# print list(np.argmax(test_labels[test_index], axis=1))
-	# print greedy_decode(test_sequences[test_index])
-	# print '\n'
-	counter += 1
-	actual = list(np.argmax(test_labels[test_index], axis=1))
-	predicted = greedy_decode(test_sequences[test_index])
-	if (len(actual) == len(predicted)):
-		for index in range(len(actual)):
-			y_test.append(actual[index])
-			y_pred.append(predicted[index])
+for index in range(len(sequences)):
+    if (actual_labels[index].shape == predicted_labels[index].shape):
+        for x in list(actual_labels[index]):    y_true.append(x)
+        for x in list(predicted_labels[index]):     y_pred.append(x)
+        counter+=1
+y_true = np.array(y_true)
+y_pred = np.array(y_pred)
+print y_true.shape
 
-print('Number of predicted sequences with equal length as target labels : {} out of {}'.format(counter, len(test_sequences)))
+# print y_true
+# print '\n'
+# print np.array(y_true)
+# print '\n'
+# print len(y_true)
+# print '\n'
+# print y_pred
+# print '\n'
+# print np.array(y_pred)
+# print '\n'
+# print len(y_pred)
+
+print('Number of predicted sequences with equal length as target labels : {} out of {}'.format(counter, len(sequences)))
 
 np.set_printoptions(precision=2)
-class_names = ['<start>', 'AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'EH', 'ER', 'EY', 'IH', 'IY', 'OW', 'UW', 'CH', 'D', 'G', 'HH', 'JH', 'K', 'L', 'N', 'NG', 'R', 'S', 'SH', 'T', 'TH', 'Y', 'Z', '<end>']
 
 # Mapping numbers to actual class names
-for index, element in enumerate(y_test):	y_test[index] = class_names[element]
-for index, element in enumerate(y_pred):	y_pred[index] = class_names[element]
+# for index, element in enumerate(y_true):    y_true[index] = class_names[element]
+# for index, element in enumerate(y_pred):    y_pred[index] = class_names[element]
 
 # Plot non-normalized confusion matrix
-plot_confusion_matrix(y_test, y_pred, classes=class_names,
+plot_confusion_matrix(y_true, y_pred, classes=class_names,
                       title='Confusion matrix, without normalization')
 
 # Plot normalized confusion matrix
-plot_confusion_matrix(y_test, y_pred, classes=class_names, normalize=True,
+plot_confusion_matrix(y_true, y_pred, classes=class_names, normalize=True,
                       title='Normalized confusion matrix')
 
 plt.show()
-'''
-
