@@ -1,6 +1,6 @@
 import os
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 os.environ['KERAS_BACKEND'] = 'tensorflow'
 import numpy as np
 import tensorflow as tf
@@ -96,27 +96,18 @@ for data_file in input_data:
             test_file = data_proc.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
                                        sample_rate=config.sample_rate, surrounding=config.surrounding,
                                        exclude=set([]), num_classes=config.num_classes)
-            test_files.append(test_file)
+            training_files.append(test_file)
 
 training_sequence_groups = data_proc.combine(training_files)
-test_sequence_groups = data_proc.combine(test_files)
 
 print("Training sequences:")
 print(len(training_sequence_groups), " sequences")
 lens = map(len, data_proc.get_inputs(training_sequence_groups)[0])
 print min(lens), np.mean(lens), max(lens)
 
-print("Test sequences:")
-print(len(test_sequence_groups), "sequences")
-lens = map(len, data_proc.get_inputs(test_sequence_groups)[0])
-print min(lens), np.mean(lens), max(lens)
-
 # Format into sequences and labels
 train_sequences, train_labels = data_proc.get_inputs(training_sequence_groups)
-test_sequences, test_labels = data_proc.get_inputs(test_sequence_groups)
-
 train_sequences = transform_data(train_sequences)
-test_sequences = transform_data(test_sequences)
 
 label_map = config.phoneme_label_map
 print("Label map:", len(label_map))
@@ -124,24 +115,43 @@ num_classes = len(np.unique(reduce(lambda a,b: a+b, label_map))) + 2 #(for start
 start_symbol = num_classes - 2 # 29
 end_symbol = num_classes - 1 # 30
 
-
 label_map = map(lambda label_seq: [start_symbol] + label_seq + [end_symbol], label_map)
 label_map = map(lambda label_seq: tf.keras.utils.to_categorical(label_seq, num_classes=num_classes), label_map)
 
 train_labels = np.array(map(lambda i: label_map[i], train_labels))
-test_labels = np.array(map(lambda i: label_map[i], test_labels))
 
-max_input_length = max(map(len, train_sequences) + map(len, test_sequences))
-max_labels_length = max(map(len, train_labels) + map(len, test_labels))
+max_input_length = max(map(len, train_sequences))
+max_labels_length = max(map(len, train_labels))
 
-train_sequences = data_proc.transform.pad_truncate(train_sequences, max_input_length, position=0.0, value=-1e8)
-test_sequences = data_proc.transform.pad_truncate(test_sequences, max_input_length, position=0.0, value=-1e8)
-train_labels = data_proc.transform.pad_truncate(train_labels, max_labels_length, position=0.0, value=0)
-test_labels = data_proc.transform.pad_truncate(test_labels, max_labels_length, position=0.0, value=0)
+train_sequences_all = data_proc.transform.pad_truncate(train_sequences, max_input_length, position=0.0, value=-1e8)
+train_labels_all = data_proc.transform.pad_truncate(train_labels, max_labels_length, position=0.0, value=0)
+
+def split_data(num_fold, all_sequences, all_labels):
+
+    indices = np.arange(all_sequences.shape[0])
+    # print(indices)
+    np.random.seed(num_fold)
+    np.random.shuffle(indices)
+    # print(indices)
+
+    all_sequences = all_sequences[indices]
+    all_labels = all_labels[indices]
+
+    test_ind = int(round(0.9 * len(all_sequences)))
+
+    train_seq = all_sequences[:test_ind]
+    train_lab = all_labels[:test_ind]
+
+    test_seq = all_sequences[test_ind:]
+    test_lab = all_labels[test_ind:]
+
+    return train_seq, train_lab, test_seq, test_lab
+
+train_sequences, train_labels, test_sequences, test_labels = split_data(0, train_sequences_all, train_labels_all)
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
 
-def batch_greedy_decode(input_seq, max_decoder_seq_length=8):
+def batch_greedy_decode(input_seq, encoder_model, decoder_model, max_decoder_seq_length, start_symbol, end_symbol, num_classes):
     '''
     Performs batch greedy decode on the input_seq batch until max_decoder_seq_length while dynamically
     pruning samples that've reached end_symbol already.
@@ -229,50 +239,8 @@ def batch_greedy_decode(input_seq, max_decoder_seq_length=8):
 
     return final_predicted_labels
 
-'''
-def inefficient_batch_greedy_decode(input_seq, max_decoder_seq_length=8):
-    # inefficient since it doesn't dynalically prune and keeps decoding even after end_symbol
-    # all the way till specified max_decoder_seq_length
-    
-    if input_seq.ndim==2:   input_seq = np.expand_dims(input_seq, 0)
-    samples = input_seq.shape[0]
 
-    states_value = encoder_model.predict(input_seq) # Encoder states
-
-    # Generate empty target sequence of length 1    
-    target_seq = np.zeros((samples, 1, num_classes))
-    target_seq[:, 0, start_symbol] = 1
-
-    decoded_seq_list = np.asarray([[start_symbol]]*samples) # completed seqs are dynamically pruned
-    output_seq_list = [] # completed seqs are dynamically appended
-    # final_locations = np.empty(shape=(0,))
-
-    i = 1
-
-    while i<max_decoder_seq_length:
-        output_tokens, h, c = decoder_model.predict([target_seq] + states_value)
-        sampled_token_index = np.argmax(output_tokens[:, -1, :], axis=-1)
-
-        decoded_seq_list = np.append(decoded_seq_list, np.expand_dims(sampled_token_index,1), axis=-1)
-
-        # Update the target sequence, fed into decoder
-        target_seq = np.zeros((samples, 1, num_classes))
-        target_seq[np.arange(samples), 0, sampled_token_index] = 1
-        
-        # Update states
-        states_value = [h, c]
-        i+=1
-
-    print decoded_seq_list
-    print decoded_seq_list.shape
-
-    # predicted_labels is a list of 1d arrays with shape (x,) where x is variable
-    # But the final_locations aren't arranged yet
-
-    return predicted_labels
-'''
-
-def greedy_decode(input_seq, max_decoder_seq_length=8):
+def greedy_decode(input_seq, encoder_model, decoder_model, max_decoder_seq_length, start_symbol, end_symbol, num_classes):
     input_seq = np.expand_dims(input_seq, 0)
     states_value = encoder_model.predict(input_seq) # Encoder states
 
@@ -309,7 +277,7 @@ def greedy_decode(input_seq, max_decoder_seq_length=8):
     return decoded_sequence
 
 
-def beam_decode(input_seq, k=5, max_decoder_seq_length=10):
+def beam_decode(input_seq, encoder_model, decoder_model, max_decoder_seq_length, start_symbol, end_symbol, num_classes, k=5):
 
     output_seq_list = []
     output_probs_list = []
@@ -395,64 +363,17 @@ def beam_decode(input_seq, k=5, max_decoder_seq_length=10):
     return output_seq_list, output_probs_list
 
 
-def plot_confusion_matrix(y_true, y_pred, classes, normalize=False, title=None, cmap=plt.cm.Blues):
-    """
-    This function prints and plots the confusion matrix.
-    Normalization can be applied by setting `normalize=True`.
-    """
-    if not title:
-        if normalize:
-            title = 'Normalized confusion matrix'
-        else:
-            title = 'Confusion matrix, without normalization'
-
-    # Compute confusion matrix
-    cm = confusion_matrix(y_true, y_pred)
-    # Only use the labels that appear in the data
-    classes = classes[unique_labels(y_true, y_pred)]
-    if normalize:
-        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-        print("Plotting Normalized confusion matrix")
-    else:
-        print("Plotting Confusion matrix, without normalization")
-
-    # print(cm)
-
-    fig, ax = plt.subplots()
-    im = ax.imshow(cm, interpolation='nearest', cmap=cmap)
-    ax.figure.colorbar(im, ax=ax)
-    # We want to show all ticks...
-    ax.set(xticks=np.arange(cm.shape[1]),
-           yticks=np.arange(cm.shape[0]),
-           # ... and label them with the respective list entries
-           xticklabels=classes, yticklabels=classes,
-           title=title,
-           ylabel='True label',
-           xlabel='Predicted label')
-
-    # Rotate the tick labels and set their alignment.
-    plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
-             rotation_mode="anchor")
-
-    # Loop over data dimensions and create text annotations.
-    fmt = '.2f' if normalize else 'd'
-    thresh = cm.max() / 2.
-    for i in range(cm.shape[0]):
-        for j in range(cm.shape[1]):
-            ax.text(j, i, format(cm[i, j], fmt),
-                    ha="center", va="center",
-                    color="white" if cm[i, j] > thresh else "black")
-    fig.tight_layout()
-    return ax
-
-def plot_confusion_matrix(sequences, labels, classes, decode='batch_greedy_decode', normalize=False, title=None, cmap=plt.cm.Blues):
+def plot_confusion_matrix(sequences, labels, classes, encoder_model, decoder_model, max_decoder_seq_length,\
+ start_symbol, end_symbol, num_classes, decode='batch_greedy_decode', normalize=False, title=None, cmap=plt.cm.Blues):
     """
     This function plots the confusion matrix.
     Normalization can be applied by setting `normalize=True`.
     """
 
     actual_labels = list(np.argmax(labels, axis=-1))
-    if decode=='batch_greedy_decode':       predicted_labels = batch_greedy_decode(sequences)
+    if decode=='batch_greedy_decode':
+        predicted_labels = batch_greedy_decode(sequences, encoder_model, decoder_model,\
+         max_decoder_seq_length, start_symbol, end_symbol, num_classes)
 
     counter = 0 # Tracks number of predictions with same length as actual target
     y_true, y_pred = [], []
@@ -515,9 +436,46 @@ def plot_confusion_matrix(sequences, labels, classes, decode='batch_greedy_decod
     return ax
 
 
-# def accuracies(sequences,labels):
+def word_error_rate(sequences, labels, encoder_model, decoder_model, max_decoder_seq_length,\
+ start_symbol, end_symbol, num_classes, decode='batch_greedy_decode'):
 
+    act_labels = list(np.argmax(labels, axis=-1))
+    if decode=='batch_greedy_decode':
+        pred_labels = batch_greedy_decode(sequences, encoder_model, decoder_model,\
+         max_decoder_seq_length, start_symbol, end_symbol, num_classes)
+    decisions = np.empty(0,)
+    print '@'*100
+    # print np.array(actual_labels)
+    print np.array(act_labels).shape
+    print np.array(pred_labels)
+    print np.array(pred_labels).shape
+    # print np.equal(actual_labels, predicted_labels)
 
+    for x in range(len(act_labels)):
+        if act_labels[x].shape[0] < pred_labels[x].shape[0]:
+            while act_labels[x].shape[0] < pred_labels[x].shape[0]:
+                act_labels[x] = np.append(act_labels[x], -1)
+            decisions = np.append(decisions, np.equal(act_labels[x], pred_labels[x]))
+            continue
+
+        elif act_labels[x].shape[0] > pred_labels[x].shape[0]:
+            while act_labels[x].shape[0] > pred_labels[x].shape[0]:
+                act_labels[x] = act_labels[x][:-1]
+            decisions = np.append(decisions, np.equal(act_labels[x], pred_labels[x]))
+            continue
+
+        else:
+            decisions = np.append(decisions, np.equal(act_labels[x], pred_labels[x]))
+            continue
+
+    # print decisions
+    # print decisions.shape
+
+    true_positions = np.count_nonzero(decisions)-len(act_labels)
+    # print true_positions
+    total_positions = decisions.shape[0]-len(act_labels)
+    # print total_positions
+    
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -525,8 +483,8 @@ def plot_confusion_matrix(sequences, labels, classes, decode='batch_greedy_decod
 # Enter the model name, sequences and labels
 log_name = '20190724-110527_e100_b80_phon_bidir_utkarsh_CV' # Max validation = 32.6%, Fold 0 acc on test: 14.34%
 # log_name = '20190719-234522_e2_b20_phon_bidir_utkarsh_CV' #2 epoch model
-sequences = train_sequences
-labels = train_labels
+sequences = train_sequences[450:480]
+labels = train_labels[450:480]
 class_names = ['AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'EH', 'ER', 'EY', 'IH', 'IY', 'OW', 'UW', 'CH', 'D', 'G', 'HH', 'JH', 'K', 'L', 'N', 'NG', 'R', 'S', 'SH', 'T', 'TH', 'Y', 'Z', '<start>', '<end>']
 
 # Loading the models
@@ -534,17 +492,16 @@ model = load_model('SavedModels/Full_{}.h5'.format(log_name))
 encoder_model = load_model('SavedModels/Encoder_{}.h5'.format(log_name))
 decoder_model = load_model('SavedModels/Decoder_{}.h5'.format(log_name))
 
-# actual_labels = list(np.argmax(labels, axis=-1))
-# predicted_labels = beam_decode(sequences)
-# predicted_labels = greedy_decode(sequences)
-# predicted_labels = batch_greedy_decode(sequences)
+# Call the desired functins here
 
+# word_error_rate(sequences, labels)
 
-plot_confusion_matrix(sequences, labels, np.array(class_names),
-                      title='Confusion matrix, without normalization')
+# plot_confusion_matrix(sequences, labels, np.array(class_names),
+#                       title='Confusion matrix, without normalization')
 
-# Plot normalized confusion matrix
-plot_confusion_matrix(sequences, labels, np.array(class_names), normalize=True,
-                      title='Normalized confusion matrix')
+# # Plot normalized confusion matrix
+# plot_confusion_matrix(sequences, labels, np.array(class_names), normalize=True,
+#                       title='Normalized confusion matrix')
 
-plt.show()
+# plt.show()
+
