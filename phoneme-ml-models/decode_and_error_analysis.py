@@ -467,8 +467,8 @@ def error_rate(sequences, labels, encoder_model, decoder_model, max_decoder_seq_
 
     norm_distance_list = []
     for index in range(len(act_labels)):
-        distance = edit_distance(list(act_labels[index])[1:], list(pred_labels[index])[1:])
-        norm_distance = distance/float(len(list(act_labels[index])[1:]))
+        distance = edit_distance(list(act_labels[index])[1:-1], list(pred_labels[index])[1:-1])
+        norm_distance = distance/float(len(list(act_labels[index])[1:-1]))
         norm_distance_list.append(norm_distance)
 
     return statistics.mean(norm_distance_list)
@@ -493,8 +493,8 @@ def bit_rate(application_speed, error_rate_, vocabulary_size):
 # Enter the model name, sequences and labels
 log_name = '20190724-110527_e100_b80_phon_bidir_utkarsh_CV' # Max validation = 32.6%, Fold 0 acc on test: 14.34%
 # log_name = '20190719-234522_e2_b20_phon_bidir_utkarsh_CV' #2 epoch model
-sequences = train_sequences[450:480]
-labels = train_labels[450:480]
+sequences = train_sequences
+labels = train_labels
 class_names = ['AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'EH', 'ER', 'EY', 'IH', 'IY', 'OW', 'UW', 'CH', 'D', 'G', 'HH', 'JH', 'K', 'L', 'N', 'NG', 'R', 'S', 'SH', 'T', 'TH', 'Y', 'Z', '<start>', '<end>']
 
 # Loading the models
@@ -504,7 +504,7 @@ decoder_model = load_model('SavedModels/Decoder_{}.h5'.format(log_name))
 
 # Call the desired functins here
 
-# print error_rate(sequences, labels, encoder_model, decoder_model, 8, start_symbol, end_symbol, num_classes)
+print error_rate(sequences, labels, encoder_model, decoder_model, 8, start_symbol, end_symbol, num_classes)
 # print bit_rate(9,0.8,7)
 # plot_confusion_matrix(sequences, labels, np.array(class_names),
 #                       title='Confusion matrix, without normalization')
