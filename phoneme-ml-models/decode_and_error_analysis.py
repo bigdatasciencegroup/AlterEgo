@@ -12,6 +12,7 @@ from sklearn.metrics import confusion_matrix
 from sklearn.utils.multiclass import unique_labels
 
 import math
+import statistics
 import time
 import json
 
@@ -436,46 +437,55 @@ def plot_confusion_matrix(sequences, labels, classes, encoder_model, decoder_mod
     return ax
 
 
-def word_error_rate(sequences, labels, encoder_model, decoder_model, max_decoder_seq_length,\
+def edit_distance(s1, s2):
+    if len(s1) > len(s2):
+        s1, s2 = s2, s1
+
+    distances = range(len(s1) + 1)
+    for i2, c2 in enumerate(s2):
+        distances_ = [i2+1]
+        for i1, c1 in enumerate(s1):
+            if c1 == c2:
+                distances_.append(distances[i1])
+            else:
+                distances_.append(1 + min((distances[i1], distances[i1 + 1], distances_[-1])))
+        distances = distances_
+    return distances[-1]
+
+
+def error_rate(sequences, labels, encoder_model, decoder_model, max_decoder_seq_length,\
  start_symbol, end_symbol, num_classes, decode='batch_greedy_decode'):
 
     act_labels = list(np.argmax(labels, axis=-1))
     if decode=='batch_greedy_decode':
         pred_labels = batch_greedy_decode(sequences, encoder_model, decoder_model,\
          max_decoder_seq_length, start_symbol, end_symbol, num_classes)
-    decisions = np.empty(0,)
-    print '@'*100
-    # print np.array(actual_labels)
-    print np.array(act_labels).shape
-    print np.array(pred_labels)
-    print np.array(pred_labels).shape
-    # print np.equal(actual_labels, predicted_labels)
+    # print act_labels
+    # print
+    # print pred_labels
+    # print
 
-    for x in range(len(act_labels)):
-        if act_labels[x].shape[0] < pred_labels[x].shape[0]:
-            while act_labels[x].shape[0] < pred_labels[x].shape[0]:
-                act_labels[x] = np.append(act_labels[x], -1)
-            decisions = np.append(decisions, np.equal(act_labels[x], pred_labels[x]))
-            continue
+    norm_distance_list = []
+    for index in range(len(act_labels)):
+        distance = edit_distance(list(act_labels[index])[1:], list(pred_labels[index])[1:])
+        norm_distance = distance/float(len(list(act_labels[index])[1:]))
+        norm_distance_list.append(norm_distance)
 
-        elif act_labels[x].shape[0] > pred_labels[x].shape[0]:
-            while act_labels[x].shape[0] > pred_labels[x].shape[0]:
-                act_labels[x] = act_labels[x][:-1]
-            decisions = np.append(decisions, np.equal(act_labels[x], pred_labels[x]))
-            continue
+    return statistics.mean(norm_distance_list)
 
-        else:
-            decisions = np.append(decisions, np.equal(act_labels[x], pred_labels[x]))
-            continue
+def bit_rate(application_speed, error_rate_, vocabulary_size):
+    '''bit-rate (also referred to as Wolpaw rate), as explained by Kronegg et al. and originally proposed by Wolpaw et al.
+    measures the performance of human-computer interfaces.
 
-    # print decisions
-    # print decisions.shape
-
-    true_positions = np.count_nonzero(decisions)-len(act_labels)
-    # print true_positions
-    total_positions = decisions.shape[0]-len(act_labels)
-    # print total_positions
-    
+    Returns information transfer rate in bits per minute given the 
+    application speed V (average words per minute / phonemes per minute)
+    classification accuracy P (1 minus word error rate / phoneme error rate)
+    vocabulary size N (no. of distinct words / phonemes)
+    B = V * [logN + PlogP + (1-P)log(1-P/N-1)] words per minute / phonemes per minute
+    PS: All logs have base 2
+    '''
+    classification_accuracy = 1 - error_rate_
+    return application_speed * (math.log(vocabulary_size,2) + (classification_accuracy*math.log(classification_accuracy,2)) + (error_rate_*math.log(error_rate_/(vocabulary_size-1),2)))
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -494,8 +504,8 @@ decoder_model = load_model('SavedModels/Decoder_{}.h5'.format(log_name))
 
 # Call the desired functins here
 
-# word_error_rate(sequences, labels)
-
+# print error_rate(sequences, labels, encoder_model, decoder_model, 8, start_symbol, end_symbol, num_classes)
+# print bit_rate(9,0.8,7)
 # plot_confusion_matrix(sequences, labels, np.array(class_names),
 #                       title='Confusion matrix, without normalization')
 
