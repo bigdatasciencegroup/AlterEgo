@@ -165,10 +165,10 @@ def split_data(num_fold, all_sequences, all_labels):
 # Result logging
 timeString = time.strftime("%Y%m%d-%H%M%S", time.localtime())
 log_name = "{}_e{}_b{}_phon_bidir_utkarsh_CV".format(timeString, config.num_epochs, config.batch_size)
-result_file = open(log_name + ".txt", "w")
+result_file = open("ResultFiles/" + log_name + ".txt", "w")
 # Print header
-result_file.write('# HYPERPARAMETERS:\nepochs:{}\nbatch size:{}\nlatent dim:{}\nlearning rate:{}\ndecay:{}\nattention:{}\nearly stopping:{}\nfolds:{}\n'.format(config.num_epochs, config.batch_size, config.latent_dim, config.learning_rate, config.decay, config.with_attention, config.early_stopping, config.num_folds))
-result_file.write('epoch, training_loss, training_acc, max_validation_accuracy, val_loss, validation_accuracy\n')
+result_file.write('# HYPERPARAMETERS:\nepochs:{}\nbatch size:{}\nlatent dim:{}\nlearning rate:{}\ndecay:{}\nattention:{}\nearly stopping:{}\nfolds:{}\ndropout rate:{}\nrecurrent dropout rate:{}\n'.format(config.num_epochs, config.batch_size, config.latent_dim, config.learning_rate, config.decay, config.with_attention, config.early_stopping, config.num_folds, config.dropout_rate, config.recurrent_dropout_rate))
+# result_file.write('epoch, training_loss, training_acc, max_validation_accuracy, val_loss, validation_accuracy\n')
 
 # Cross validation
 cvscores = []
@@ -178,7 +178,7 @@ try:
         # reset model
         K.clear_session()
         print "Fold:", fold
-        result_file.write("Fold: " + str(fold))
+        # result_file.write("Fold: " + str(fold))
         train_sequences, train_labels, test_sequences, test_labels = split_data(fold, train_sequences_all, train_labels_all)
         print "Training:", len(train_sequences)
         print "Testing:", len(test_sequences)
