@@ -94,4 +94,3 @@ print('Total Phonemes :', AA+AE+AH+AO+AW+AY+EH+ER+EY+IH+IY+OW+OY+UH+UW+CH+D+DH+G
 # CH : 8   D : 23  DH : 4   G : 10   HH : 15   JH : 5   K : 28   L : 25   N : 34   NG : 17   R : 22   S : 36   SH : 3   T : 49   TH : 6   Y : 6   Z : 14  ZH : 0  P : 18  B : 18  M : 23  F: 9  V : 10  W: 9
 # Total Phonemes : 612
 
-
