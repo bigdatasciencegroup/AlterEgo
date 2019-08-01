@@ -20,14 +20,14 @@ lines = [line.rstrip('\n')\
 
 data = []
 
-with open('wordmap.txt', 'r') as file:
-	filedata = file.read()
+# with open('wordmap.txt', 'r') as file:
+# 	filedata = file.read()
 
-filedata = filedata.replace('\n', '\', \'')
+# filedata = filedata.replace('\n', '\', \'')
 
-open('wordmap.txt', 'w+').close() # To erase all previous contents of the file
-with open('wordmap.txt', 'w') as file:
-	file.write(filedata)
+# open('wordmap.txt', 'w+').close() # To erase all previous contents of the file
+# with open('wordmap.txt', 'w') as file:
+# 	file.write(filedata)
 
 
 for line in lines:
