@@ -116,13 +116,9 @@ print 'START_SYMBOL', start_symbol
 print 'END_SYMBOL', end_symbol
 
 label_map = map(lambda label_seq: [start_symbol] + label_seq + [end_symbol], label_map)
-# print(len(label_map)) # 4757
 label_map = map(lambda label_seq: tf.keras.utils.to_categorical(label_seq, num_classes=num_classes), label_map)
-# print(len(label_map)) # 4757
 
 train_labels = np.array(map(lambda i: label_map[i], train_labels))
-
-# print(train_labels.shape) # (1140,7,31)
 
 max_input_length = max(map(len, train_sequences))
 max_labels_length = max(map(len, train_labels))
@@ -130,10 +126,9 @@ max_labels_length = max(map(len, train_labels))
 train_sequences_all = data_proc.transform.pad_truncate(train_sequences, max_input_length, position=0.0, value=-1e8)
 train_labels_all = data_proc.transform.pad_truncate(train_labels, max_labels_length, position=0.0, value=0)
 
-# print(train_labels.shape) # (1140,7,31)
 print
-print 'All Sequences shape', train_sequences_all.shape
-print 'All Labels shape', train_labels_all
+print 'All Sequences shape', train_sequences_all.shape # (306, 1319, 8)
+print 'All Labels shape', train_labels_all.shape # (306, 11, 39)
 print
 print "Number of classes: ", num_classes
 print "Number of samples: ", np.shape(train_sequences)[0]
