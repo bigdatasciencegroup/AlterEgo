@@ -94,3 +94,19 @@ print('Total Phonemes :', AA+AE+AH+AO+AW+AY+EH+ER+EY+IH+IY+OW+OY+UH+UW+CH+D+DH+G
 # CH : 8   D : 23  DH : 4   G : 10   HH : 15   JH : 5   K : 28   L : 25   N : 34   NG : 17   R : 22   S : 36   SH : 3   T : 49   TH : 6   Y : 6   Z : 14  ZH : 0  P : 18  B : 18  M : 23  F: 9  V : 10  W: 9
 # Total Phonemes : 612
 
+word_map = ['aches EY K S', 'afternoon AE F T ER N UW N', 'allow AH L AW', 'am AE M', 'anything EH N IY TH IH NG', 'audio AA D IY OW', 'back B AE K', 'backache B AE K EY K', 'bad B AE D', 'bathroom B AE TH R UW M', 'bed B EH D', 'bedroom B EH D R UW M', 'bring B R IH NG', 'bye B AY', 'can K AE N', 'cant K AE N T', 'cannot K AE N AA T', 'change CH EY N JH', 'chinese CH AY N IY Z', 'computer K AH M P Y UW T ER', 'cooler K UW L ER', 'could K UH D', 'couldnt K UH D AH N T', 'decrease D IH K R IY S', 'device D IH V AY S', 'different D IH F ER AH N T', 'down D AW N', 'drink D R IH NG K', 'eat IY T', 'english IH NG G L IH SH', 'evening IY V N IH NG', 'exhausted IH G Z AO S T IH D', 'far F AA R', 'feel F IY L', 'fetch F EH CH', 'german JH ER M AH N', 'get G EH T', 'getting G EH T IH NG', 'go G OW', 'good G UH D', 'goodbye G UH D B AY', 'have HH AE V', 'having HH AE V IH NG', 'head HH EH D', 'headache HH EH D EY K', 'hear HH IY R', 'heat HH IY T', 'heating HH IY T IH NG', 'hello HH AH L OW', 'help HH EH L P', 'hey HH EY', 'hi HH AY', 'hotter HH AA T ER', 'hungry HH AH NG G R IY', 'hurting HH ER T IH NG', 'hurts HH ER T S', 'in IH N', 'increase IH N K R IY S', 'into IH N T UW', 'is IH Z', 'it IH T', 'its IH T S', 'juice JH UW S', 'kitchen K IH CH AH N', 'korean K AO R IY AH N', 'lamp L AE M P', 'language L AE NG G W AH JH', 'languages L AE NG G W AH JH AH Z', 'later L EY T ER', 'less L EH S', 'levels L EH V AH L Z', 'lie L AY', 'light L AY T', 'lights L AY T S', 'lot L AA T', 'loud L AW D', 'louder L AW D ER', 'low L OW', 'lower L OW ER', 'main M EY N', 'make M EY K', 'max M AE K S', 'me M IY', 'more M AO R', 'morning M AO R N IH NG', 'much M AH CH', 'music M Y UW Z IH K', 'mute M Y UW T', 'my M AY', 'nap N AE P', 'need N IY D', 'newspaper N UW Z P EY P ER', 'now N AW', 'of AH V', 'off AO F', 'ok OW K EY', 'on AA N', 'open OW P AH N', 'pain P EY N', 'pains P EY N Z', 'pause P AO Z', 'phone F OW N', 'phones F OW N Z', 'play P L EY', 'please P L IY Z', 'practice P R AE K T IH S', 'put P UH T', 'quiet K W AY AH T', 'quieter K W AY AH T ER', 'reboot R IY B UW T', 'reduce R IH D UW S', 'restart R IY S T AA R T', 'resume R IH Z UW M', 'see S IY', 'set S EH T', 'settings S EH T IH NG Z', 'shoes SH UW Z', 'sleep S L IY P', 'so S OW', 'socks S AA K S', 'softer S AA F T ER', 'some S AH M', 'something S AH M TH IH NG', 'soon S UW N', 'sound S AW N D', 'start S T AA R T', 'stop S T AA P', 'switch S W IH CH', 'system S IH S T AH M', 'take T EY K', 'temperature T EH M P R AH CH ER', 'thank TH AE NG K', 'thanks TH AE NG K S', 'that DH AE T', 'thats DH AE T S', 'the DH AH', 'thirsty TH ER S T IY', 'this DH IH S', 'tired T AY ER D', 'to T UW', 'too T UW', 'turn T ER N', 'tv T IY V IY', 'up AH P', 'use Y UW S', 'very V EH R IY', 'video V IH D IY OW', 'volume V AA L Y UW M', 'want W AA N T', 'washroom W AA SH R UW M', 'watch W AA CH', 'water W AO T ER', 'you Y UW', 'FINISHED FINISHED FINISHED FINISHED FINISHED']
+phonemes = ['AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'EH', 'ER', 'EY', 'IH', 'IY', 'OW', 'OY', 'UH', 'UW', 'CH', 'D', 'DH', 'G', 'HH', 'JH', 'K', 'L', 'N', 'NG', 'R', 'S', 'SH', 'T', 'TH', 'Y', 'Z', 'ZH', 'P', 'B', 'F', 'M', 'V', 'W']
+phoneme_label_map = []
+
+for word in word_map[:-1]:
+	map_ = []
+	ph_list = word.split()[1:]
+	# print(ph_list)
+	for ph in ph_list:
+		map_.append(phonemes.index(ph))
+	phoneme_label_map.append(map_)
+
+print(phoneme_label_map)
+
+
+
