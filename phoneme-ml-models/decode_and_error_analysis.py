@@ -493,8 +493,8 @@ def bit_rate(application_speed, error_rate_, vocabulary_size):
 # Enter the model name, sequences and labels
 log_name = '20190724-110527_e100_b80_phon_bidir_utkarsh_CV' # Max validation = 32.6%, Fold 0 acc on test: 14.34%
 # log_name = '20190719-234522_e2_b20_phon_bidir_utkarsh_CV' #2 epoch model
-sequences = train_sequences
-labels = train_labels
+sequences = train_sequences[10:12]
+labels = train_labels[10:12]
 class_names = ['AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'EH', 'ER', 'EY', 'IH', 'IY', 'OW', 'UW', 'CH', 'D', 'G', 'HH', 'JH', 'K', 'L', 'N', 'NG', 'R', 'S', 'SH', 'T', 'TH', 'Y', 'Z', '<start>', '<end>']
 
 # Loading the models
@@ -503,8 +503,9 @@ encoder_model = load_model('SavedModels/Encoder_{}.h5'.format(log_name))
 decoder_model = load_model('SavedModels/Decoder_{}.h5'.format(log_name))
 
 # Call the desired functins here
+print batch_greedy_decode(sequences, encoder_model, decoder_model, 8, start_symbol, end_symbol, num_classes)
 
-print error_rate(sequences, labels, encoder_model, decoder_model, 8, start_symbol, end_symbol, num_classes)
+# print error_rate(sequences, labels, encoder_model, decoder_model, 8, start_symbol, end_symbol, num_classes)
 # print bit_rate(9,0.8,7)
 # plot_confusion_matrix(sequences, labels, np.array(class_names),
 #                       title='Confusion matrix, without normalization')
