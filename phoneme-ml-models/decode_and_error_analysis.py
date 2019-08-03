@@ -1,6 +1,6 @@
 import os
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 os.environ['KERAS_BACKEND'] = 'tensorflow'
 import numpy as np
 import tensorflow as tf
@@ -86,18 +86,25 @@ with open(config.data_maps, 'r') as f:
 
 training_files = []
 test_files = []
+# for data_file in input_data:
+#     if data_file['type'] == 'phonemes_utkarsh':
+#         if 'train' in data_file['filename']:
+#             train_file = data_proc.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
+#                                        sample_rate=config.sample_rate, surrounding=config.surrounding, exclude=set([]),
+#                                        num_classes=config.num_classes)
+#             training_files.append(train_file)
+#         if 'test' in data_file['filename']:
+#             test_file = data_proc.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
+#                                        sample_rate=config.sample_rate, surrounding=config.surrounding,
+#                                        exclude=set([]), num_classes=config.num_classes)
+#             training_files.append(test_file)
+
 for data_file in input_data:
-    if data_file['type'] == 'phonemes_utkarsh':
-        if 'train' in data_file['filename']:
-            train_file = data_proc.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
-                                       sample_rate=config.sample_rate, surrounding=config.surrounding, exclude=set([]),
-                                       num_classes=config.num_classes)
-            training_files.append(train_file)
-        if 'test' in data_file['filename']:
-            test_file = data_proc.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
-                                       sample_rate=config.sample_rate, surrounding=config.surrounding,
-                                       exclude=set([]), num_classes=config.num_classes)
-            training_files.append(test_file)
+    if data_file['type'] == 'phonemes_common_utkarsh':
+        train_file = data_proc.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
+                                   sample_rate=config.sample_rate, surrounding=config.surrounding, exclude=set([]),
+                                   num_classes=config.num_classes)
+        training_files.append(train_file)
 
 training_sequence_groups = data_proc.combine(training_files)
 
@@ -371,16 +378,19 @@ def plot_confusion_matrix(sequences, labels, classes, encoder_model, decoder_mod
     Normalization can be applied by setting `normalize=True`.
     """
 
-    actual_labels = list(np.argmax(labels, axis=-1))
+    actual_labels = []
+    for label in np.argmax(labels, axis=-1).tolist():
+        for idx, val in enumerate(label):
+            if val==end_symbol:     actual_labels.append(label[:idx+1])
     if decode=='batch_greedy_decode':
-        predicted_labels = batch_greedy_decode(sequences, encoder_model, decoder_model,\
-         max_decoder_seq_length, start_symbol, end_symbol, num_classes)
+        predicted_labels = [list(x) for x in batch_greedy_decode(sequences, encoder_model, decoder_model,\
+         max_decoder_seq_length, start_symbol, end_symbol, num_classes)]
 
     counter = 0 # Tracks number of predictions with same length as actual target
     y_true, y_pred = [], []
 
     for index in range(len(sequences)):
-        if (actual_labels[index].shape == predicted_labels[index].shape):
+        if (len(actual_labels[index]) == len(predicted_labels[index])):
             for x in list(actual_labels[index]):
                 if x!=start_symbol and x!=end_symbol:       y_true.append(x)
             for x in list(predicted_labels[index]):
@@ -456,7 +466,11 @@ def edit_distance(s1, s2):
 def error_rate(sequences, labels, encoder_model, decoder_model, max_decoder_seq_length,\
  start_symbol, end_symbol, num_classes, decode='batch_greedy_decode'):
 
-    act_labels = list(np.argmax(labels, axis=-1))
+    act_labels = []
+    for label in np.argmax(labels, axis=-1).tolist():
+        for idx, val in enumerate(label):
+            if val==end_symbol:     act_labels.append(label[:idx+1])
+
     if decode=='batch_greedy_decode':
         pred_labels = batch_greedy_decode(sequences, encoder_model, decoder_model,\
          max_decoder_seq_length, start_symbol, end_symbol, num_classes)
@@ -490,29 +504,38 @@ def bit_rate(application_speed, error_rate_, vocabulary_size):
 # --------------------------------------------------------------------------------------------------------------------------------------------
 
 
-# Enter the model name, sequences and labels
-log_name = '20190724-110527_e100_b80_phon_bidir_utkarsh_CV' # Max validation = 32.6%, Fold 0 acc on test: 14.34%
+# Enter the model name, sequences, labels and class_names
+log_name = '20190802-224937_e1000_b80_phon_common_utkarsh' # training loss = 0.37, acc = 0.45, per = 0.128 on training data
+# log_name = '20190724-110527_e100_b80_phon_bidir_utkarsh_CV' # Max validation = 32.6%, Fold 0 acc on test: 14.34%
 # log_name = '20190719-234522_e2_b20_phon_bidir_utkarsh_CV' #2 epoch model
-sequences = train_sequences[10:12]
-labels = train_labels[10:12]
-class_names = ['AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'EH', 'ER', 'EY', 'IH', 'IY', 'OW', 'UW', 'CH', 'D', 'G', 'HH', 'JH', 'K', 'L', 'N', 'NG', 'R', 'S', 'SH', 'T', 'TH', 'Y', 'Z', '<start>', '<end>']
+sequences = train_sequences[247:]
+labels = train_labels[247:]
+# class_names = ['AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'EH', 'ER', 'EY', 'IH', 'IY', 'OW', 'UW', 'CH', 'D', 'G', 'HH', 'JH', 'K', 'L', 'N', 'NG', 'R', 'S', 'SH', 'T', 'TH', 'Y', 'Z', '<start>', '<end>']
+class_names = ['AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'EH', 'ER', 'EY', 'IH', 'IY', 'OW', 'OY', 'UH', 'UW', 'CH', 'D', 'DH', 'G', 'HH', 'JH', 'K', 'L', 'N', 'NG', 'R', 'S', 'SH', 'T', 'TH', 'Y', 'Z', 'ZH', 'P', 'B', 'F', 'M', 'V', 'W', '<start>', '<end>']
+
 
 # Loading the models
 model = load_model('SavedModels/Full_{}.h5'.format(log_name))
 encoder_model = load_model('SavedModels/Encoder_{}.h5'.format(log_name))
 decoder_model = load_model('SavedModels/Decoder_{}.h5'.format(log_name))
 
-# Call the desired functins here
-print batch_greedy_decode(sequences, encoder_model, decoder_model, 8, start_symbol, end_symbol, num_classes)
+# Calculating actual labels 
+actual_labels = []
+for label in np.argmax(labels, axis=-1).tolist():
+    for idx, val in enumerate(label):
+        if val==end_symbol:     actual_labels.append(label[:idx+1])
 
-# print error_rate(sequences, labels, encoder_model, decoder_model, 8, start_symbol, end_symbol, num_classes)
+
+# Call the desired functins here
+print
+print actual_labels
+print [list(x) for x in batch_greedy_decode(sequences, encoder_model, decoder_model, 15, start_symbol, end_symbol, num_classes)]
+print error_rate(sequences, labels, encoder_model, decoder_model, 15, start_symbol, end_symbol, num_classes)
 # print bit_rate(9,0.8,7)
 # plot_confusion_matrix(sequences, labels, np.array(class_names),
 #                       title='Confusion matrix, without normalization')
-
 # # Plot normalized confusion matrix
-# plot_confusion_matrix(sequences, labels, np.array(class_names), normalize=True,
-#                       title='Normalized confusion matrix')
-
-# plt.show()
+plot_confusion_matrix(sequences, labels, np.array(class_names), encoder_model, decoder_model, 15,\
+ start_symbol, end_symbol, num_classes, normalize=True, title='Normalized confusion matrix')
+plt.show()
 

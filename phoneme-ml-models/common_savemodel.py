@@ -106,14 +106,14 @@ train_sequences, train_labels = data_proc.get_inputs(training_sequence_groups)
 train_sequences = transform_data(train_sequences)
 
 label_map = config.phoneme_label_map
-print "Label map:", len(label_map)
+print "Label map:", len(label_map) # 306
 num_classes = len(np.unique(reduce(lambda a,b: a+b, label_map))) + 2 #(for start and end symbols)
 start_symbol = num_classes - 2
 end_symbol = num_classes - 1
 
-print 'NUM_CLASSES', num_classes
-print 'START_SYMBOL', start_symbol
-print 'END_SYMBOL', end_symbol
+print 'NUM_CLASSES', num_classes # 39
+print 'START_SYMBOL', start_symbol # 37
+print 'END_SYMBOL', end_symbol # 38
 
 label_map = map(lambda label_seq: [start_symbol] + label_seq + [end_symbol], label_map)
 label_map = map(lambda label_seq: tf.keras.utils.to_categorical(label_seq, num_classes=num_classes), label_map)
@@ -130,8 +130,8 @@ print
 print 'All Sequences shape', train_sequences_all.shape # (306, 1319, 8)
 print 'All Labels shape', train_labels_all.shape # (306, 11, 39)
 print
-print "Number of classes: ", num_classes
-print "Number of samples: ", np.shape(train_sequences)[0]
+print "Number of classes: ", num_classes # 39
+print "Number of samples: ", np.shape(train_sequences)[0] # 306
 
 def split_data(num_fold, all_sequences, all_labels):
 

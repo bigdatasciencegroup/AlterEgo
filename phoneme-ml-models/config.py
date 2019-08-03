@@ -8,12 +8,12 @@ channels = range(0, 8)
 surrounding = 250
 sample_rate = 250
 # number of words in dataset
-num_classes = 256 # 153 # 4757
+num_classes = 306 # 153 # 4757
 
 # MODEL CONFIG
 model = ""  # lstm, bilstm, bi-att
 
-num_epochs = 300
+num_epochs = 1000
 batch_size = 80
 learning_rate = 1e-3
 decay = 0.2
