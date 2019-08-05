@@ -19,8 +19,8 @@ learning_rate = 1e-3
 decay = 0.2
 latent_dim = 512
 with_attention = False
-dropout_rate = 0.5
-recurrent_dropout_rate = 0.7
+dropout_rate = 0.7 # 0.5
+recurrent_dropout_rate = 0.8 # 0.7
 early_stopping = False
 activation = 'softmax'
 

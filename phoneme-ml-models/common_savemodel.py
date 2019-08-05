@@ -172,8 +172,8 @@ try:
         print "Fold:", fold
         # result_file.write("Fold: " + str(fold))
         train_sequences, train_labels, test_sequences, test_labels = split_data(fold, train_sequences_all, train_labels_all)
-        print "Training:", len(train_sequences)
-        print "Testing:", len(test_sequences)
+        print "Training:", len(train_sequences) # 275, (247 + 28)
+        print "Testing:", len(test_sequences) # 31
 
         # Model: BiLSTM encoder, LSTM decoder
         # todo: run grid search to define hyperparameters
@@ -247,11 +247,6 @@ try:
     decoder_model.save('SavedModels/Decoder_{}.h5'.format(log_name))
     print 'Model Decoder_{}.h5 saved in SavedModels'.format(log_name)
 
-    # print '\nTrain Sequences', train_sequences[100:105]
-    # predicted_labels = batch_greedy_decode(train_sequences[100:105], encoder_model, decoder_model, 8, start_symbol, end_symbol, num_classes)
-    # actual_labels = list(np.argmax(train_labels[100:105], axis=-1))
-    # print '\nPredicted Labels', predicted_labels
-    # print '\nActual Labels', actual_labels
 
 except KeyboardInterrupt:
 
