@@ -13,14 +13,14 @@ num_classes = 306 # 153 # 4757
 # MODEL CONFIG
 model = ""  # lstm, bilstm, bi-att
 
-num_epochs = 1000
+num_epochs = 500
 batch_size = 80
 learning_rate = 1e-3
 decay = 0.2
 latent_dim = 512
 with_attention = False
-dropout_rate = 0
-recurrent_dropout_rate = 0
+dropout_rate = 0.5
+recurrent_dropout_rate = 0.7
 early_stopping = False
 activation = 'softmax'
 
