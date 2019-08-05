@@ -510,7 +510,7 @@ log_name = '20190803-200253_e2500_b80_phon_common_utkarsh' # training loss = 0.2
 # log_name = '20190724-110527_e100_b80_phon_bidir_utkarsh_CV' # Max validation = 32.6%, Fold 0 acc on test: 14.34%
 # log_name = '20190719-234522_e2_b20_phon_bidir_utkarsh_CV' #2 epoch model
 sequences = test_sequences # train_sequences[:247]
-labels = test_sequences # train_labels[:247]
+labels = test_labels # train_labels[:247]
 # class_names = ['AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'EH', 'ER', 'EY', 'IH', 'IY', 'OW', 'UW', 'CH', 'D', 'G', 'HH', 'JH', 'K', 'L', 'N', 'NG', 'R', 'S', 'SH', 'T', 'TH', 'Y', 'Z', '<start>', '<end>']
 class_names = ['AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'EH', 'ER', 'EY', 'IH', 'IY', 'OW', 'OY', 'UH', 'UW', 'CH', 'D', 'DH', 'G', 'HH', 'JH', 'K', 'L', 'N', 'NG', 'R', 'S', 'SH', 'T', 'TH', 'Y', 'Z', 'ZH', 'P', 'B', 'F', 'M', 'V', 'W', '<start>', '<end>']
 
