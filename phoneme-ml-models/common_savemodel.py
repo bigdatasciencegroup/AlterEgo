@@ -159,7 +159,7 @@ timeString = time.strftime("%Y%m%d-%H%M%S", time.localtime())
 log_name = "{}_e{}_b{}_phon_common_utkarsh".format(timeString, config.num_epochs, config.batch_size)
 result_file = open("ResultFiles/" + log_name + ".txt", "w")
 # Print header
-result_file.write('# HYPERPARAMETERS:\nepochs:{}\nbatch size:{}\nlatent dim:{}\nlearning rate:{}\ndecay:{}\nattention:{}\nearly stopping:{}\nfolds:{}\ndropout rate:{}\nrecurrent dropout rate:{}\n'.format(config.num_epochs, config.batch_size, config.latent_dim, config.learning_rate, config.decay, config.with_attention, config.early_stopping, config.num_folds, config.dropout_rate, config.recurrent_dropout_rate))
+result_file.write('# HYPERPARAMETERS:\nepochs:{}\nbatch size:{}\nlatent dim:{}\nlearning rate:{}\ndecay:{}\nattention:{}\nearly stopping:{}\nfolds:{}\nencoder dropout rate:{}\nencoder recurrent dropout rate:{}\ndecoder dropout rate:{}\ndecoder recurrent dropout rate:{}\n'.format(config.num_epochs, config.batch_size, config.latent_dim, config.learning_rate, config.decay, config.with_attention, config.early_stopping, config.num_folds, config.enc_dropout_rate, config.enc_recurrent_dropout_rate, config.dec_dropout_rate, config.dec_recurrent_dropout_rate))
 # result_file.write('epoch, training_loss, training_acc, max_validation_accuracy, val_loss, validation_accuracy\n')
 
 # Cross validation
@@ -180,7 +180,7 @@ try:
         # todo: test dropout
         # dropout_rate = 0.4
         encoder_inputs = Input(shape=(None, len(config.channels)))
-        encoder = Bidirectional(LSTM(config.latent_dim, return_state=True, return_sequences=False))
+        encoder = Bidirectional(LSTM(config.latent_dim, return_state=True, return_sequences=False, dropout=config.enc_dropout_rate, recurrent_dropout=config.enc_recurrent_dropout_rate))
         encoder_outputs, forward_h, forward_c, backward_h, backward_c = encoder(encoder_inputs)
 
         state_h = Concatenate()([forward_h, backward_h])
@@ -188,7 +188,7 @@ try:
         encoder_states = [state_h, state_c]
 
         decoder_inputs = Input(shape=(None, num_classes))
-        decoder_lstm = LSTM(config.latent_dim * 2, return_sequences=True, return_state=True, dropout=config.dropout_rate, recurrent_dropout=config.recurrent_dropout_rate)
+        decoder_lstm = LSTM(config.latent_dim * 2, return_sequences=True, return_state=True, dropout=config.dec_dropout_rate, recurrent_dropout=config.dec_recurrent_dropout_rate)
         decoder_outputs, _, _ = decoder_lstm(decoder_inputs, initial_state=encoder_states)
 
         if config.with_attention is True:
@@ -206,7 +206,7 @@ try:
             decoder_outputs = decoder_dense(decoder_outputs)
 
         model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
-        model.compile(optimizer=optimizers.Adam(lr=config.learning_rate, decay=config.decay), loss='categorical_crossentropy', metrics=['accuracy'])
+        model.compile(optimizer=optimizers.Adam(lr=config.learning_rate, decay=config.decay), loss='categorical_crossentropy')
 
         encoder_model = Model(encoder_inputs, encoder_states)
 
@@ -239,7 +239,7 @@ try:
                       batch_size=config.batch_size, epochs=config.num_epochs,
                       callbacks=[tensorboard], verbose=1)
 
-
+    model.summary(print_fn=lambda x: result_file.write(x + '\n'))
     model.save('SavedModels/Full_{}.h5'.format(log_name))
     print 'Model Full_{}.h5 saved in SavedModels'.format(log_name)
     encoder_model.save('SavedModels/Encoder_{}.h5'.format(log_name))
