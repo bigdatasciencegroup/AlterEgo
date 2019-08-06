@@ -88,7 +88,7 @@ with open(config.data_maps, 'r') as f:
 training_files = []
 test_files = []
 for data_file in input_data:
-    if data_file['type'] == 'phonemes_common_utkarsh':
+    if data_file['type'] == 'phonemes_common_utkarsh_s1':
         train_file = data_proc.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
                                    sample_rate=config.sample_rate, surrounding=config.surrounding, exclude=set([]),
                                    num_classes=config.num_classes)
