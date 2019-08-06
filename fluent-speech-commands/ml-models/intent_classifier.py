@@ -1,8 +1,23 @@
-import os
+# Seed value
+# Apparently you may use different seed values at each stage
+seed_value = 123
 import numpy as np
+# 3. Set `numpy` pseudo-random generator at a fixed value
+np.random.seed(seed_value)
 import tensorflow as tf
+# 4. Set `tensorflow` pseudo-random generator at a fixed value
+tf.set_random_seed(seed_value)
+
+import os
+# 1. Set `PYTHONHASHSEED` environment variable at a fixed value
+os.environ['PYTHONHASHSEED'] = str(seed_value)
+
+# 2. Set `python` built-in pseudo-random generator at a fixed value
+import random
+random.seed(seed_value)
+
 from tensorflow.python.keras.models import Model, load_model, Sequential
-from tensorflow.python.keras.layers import Input, CuDNNLSTM, LSTM, Dense, Concatenate, Bidirectional, Embedding, SpatialDropout1D, Dropout,Conv1D, MaxPooling1D
+from tensorflow.python.keras.layers import Input, CuDNNLSTM, LSTM, Dense, Concatenate, Bidirectional
 from tensorflow.python.keras.callbacks import Callback, TensorBoard, EarlyStopping, ModelCheckpoint
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras import optimizers
@@ -13,9 +28,9 @@ import config
 import json
 from attention_keras.layers.attention import AttentionLayer
 
-
 matplotlib.use('TkAgg')
 os.environ['KERAS_BACKEND'] = 'tensorflow'
+
 
 def normalize_kernel(kernel, subtract_mean=False):
     if subtract_mean:
@@ -80,8 +95,10 @@ def transform_data(sequence_groups, sample_rate=250):
 
 # Result logging
 timeString = time.strftime("%Y%m%d-%H%M%S", time.localtime())
-log_name = "{}_e{}_b{}_intents_nora".format(timeString, config.num_epochs, config.batch_size)
+log_name = "{}_e{}_b{}_sents_bidir_nora_CV_{}".format(timeString, config.num_epochs, config.batch_size, config.files[-1])
 result_file = open(log_name + ".txt", "w")
+result_file.write(str(config.files))
+
 
 with open(config.data_maps, 'r') as f:
     input_data = json.load(f)
@@ -90,7 +107,7 @@ training_files = []
 test_files = []
 print("num samples:", config.num_samples)
 for data_file in input_data:
-    if config.files in data_file['type']:
+    if any(sess in data_file['type'] for sess in config.files):
         train_file = data_proc.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
                                    sample_rate=config.sample_rate, surrounding=config.surrounding, exclude=set([]),
                                    num_classes=config.num_samples)
@@ -119,6 +136,7 @@ num_classes = len(np.unique(reduce(lambda a,b: a+b, label_map)))
 label_map = map(lambda label_seq: tf.keras.utils.to_categorical(label_seq, num_classes=num_classes), label_map)
 
 train_labels = np.array(map(lambda i: label_map[i], train_labels))
+print(train_labels[0])
 
 max_input_length = max(map(len, train_sequences))
 max_labels_length = max(map(len, train_labels))
@@ -136,9 +154,14 @@ print("Number of samples: ", np.shape(train_sequences)[0])
 
 def split_data(num_fold, all_sequences, all_labels):
 
+    indices = np.arange(all_sequences.shape[0])
+    print(indices)
     np.random.seed(num_fold)
-    np.random.shuffle(all_sequences)
-    np.random.shuffle(all_labels)
+    np.random.shuffle(indices)
+    print(indices)
+
+    all_sequences = all_sequences[indices]
+    all_labels = all_labels[indices]
 
     test_ind = int(round(0.9 * len(all_sequences)))
 
@@ -168,20 +191,19 @@ for fold in list(range(config.num_folds)):
     # split data into train and test
     print("Fold:", fold)
     result_file.write("Fold: " + str(fold))
-    train_sequences, train_labels, test_sequences, test_labels = split_data(fold, train_sequences, train_labels)
-    print("Training:", len(train_sequences))
-    print("Testing:", len(test_sequences))
+    train_seqs, train_labs, test_seqs, test_labs = split_data(fold, train_sequences, train_labels)
+    print("Training:", len(train_seqs))
+    print("Testing:", len(test_seqs))
 
-
-    # biLSTM classifier model
+    # biLSTM classifier model (original)
     model = Sequential()
-
-    model.add(Bidirectional(LSTM(config.latent_dim, input_shape=(max_input_length, len(config.channels)), dropout=config.dropout_rate, recurrent_dropout=config.recurrent_dropout)))
-
+    model.add(Bidirectional(
+        LSTM(config.latent_dim, input_shape=(max_input_length, len(config.channels)), dropout=config.dropout_rate,
+             recurrent_dropout=config.recurrent_dropout)))
     model.add(Dense(num_classes, activation='softmax'))
-    model.compile(loss='categorical_crossentropy', optimizer=optimizers.Adam(lr=config.learning_rate, decay=config.decay), metrics=['accuracy'])
-
-    #print(model.summary())
+    # todo; try SGD
+    model.compile(loss='categorical_crossentropy',
+                  optimizer=optimizers.Adam(lr=config.learning_rate, decay=config.decay), metrics=['accuracy'])
 
     tensorboard = TensorBoard(log_dir="logs_CV/{}_f{}".format(log_name, str(fold)), histogram_freq=1, write_graph=True, write_images=False)
 
@@ -191,36 +213,40 @@ for fold in list(range(config.num_folds)):
         # save the best model before the stopping point
         mc = ModelCheckpoint('best_model_f{}.h5'.format(fold), monitor='val_acc', mode='max', save_best_only=True,
                              verbose=0)
-        model.fit(train_sequences, train_labels,
-                  validation_split=0.1, shuffle=True,
+        model.fit(train_seqs, train_labs,
+                  validation_split=0.1, shuffle=False,
                   batch_size=config.batch_size, epochs=config.num_epochs,
                   callbacks=[tensorboard, es, mc], verbose=1)
         # evaluate the saved best model of this fold on the test set (is stopping early)
         best_model = load_model('best_model_f{}.h5'.format(fold))
-        scores = best_model.evaluate(test_sequences, test_labels, verbose=1)
+        scores = best_model.evaluate(test_seqs, test_labs, verbose=1)
         print("Fold %i %s on test: %.2f%%" % (fold, best_model.metrics_names[1], scores[1] * 100))
         result_file.write("Fold %i %s on test: %.2f%%\n" % (fold, best_model.metrics_names[1], scores[1] * 100))
         cv_scores.append(scores[1] * 100)
 
     else:
-        history = model.fit(train_sequences, train_labels,
-                            validation_split=0.1, shuffle=True,
+
+        print(train_seqs.shape)
+        print(train_labs.shape)
+        history = model.fit(train_seqs, train_labs,
+                            validation_split=0.1, shuffle=False,
                             batch_size=config.batch_size, epochs=config.num_epochs,
                             callbacks=[tensorboard], verbose=1)
 
         model.summary()
+        model.summary(print_fn=lambda x: result_file.write(x + '\n'))
         result_file.write("\nTrain acc:%.2f%%, train loss:%.4f%%, val acc:%.2f%%, val loss:%.4f%%\n" % (history.history['acc'][-1], history.history['loss'][-1], history.history['val_acc'][-1], history.history['val_loss'][-1]))
 
         # evaluate on the last model
-        scores = model.evaluate(test_sequences, test_labels, verbose=1)
+        scores = model.evaluate(test_seqs, test_labs, verbose=1)
         print("Fold %i %s on test: %.2f%%" % (fold, model.metrics_names[1], scores[1] * 100))
         result_file.write("\nFold %i %s on test: %.2f%%\n" % (fold, model.metrics_names[1], scores[1] * 100))
         cv_scores.append(scores[1] * 100)
 
-        predictions = model.predict(test_sequences)
+        predictions = model.predict(test_seqs)
         labels = config.label_strings
         for idx, p in enumerate(predictions):
-            true_label_idx = np.where(test_labels[idx] == 1)[0][0]
+            true_label_idx = np.where(test_labs[idx] == 1)[0][0]
             print(true_label_idx, np.argmax(p))
             print(labels[true_label_idx], labels[np.argmax(p)])
 

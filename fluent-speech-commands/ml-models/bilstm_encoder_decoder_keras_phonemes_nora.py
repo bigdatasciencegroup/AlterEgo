@@ -1,18 +1,6 @@
-# Set seed value
-seed_value = 123
-import numpy as np
-# Set `numpy` pseudo-random generator at a fixed value
-np.random.seed(seed_value)
-import tensorflow as tf
-# Set `tensorflow` pseudo-random generator at a fixed value
-tf.set_random_seed(seed_value)
 import os
-# 1. Set `PYTHONHASHSEED` environment variable at a fixed value
-os.environ['PYTHONHASHSEED'] = str(seed_value)
-# 2. Set `python` built-in pseudo-random generator at a fixed value
-import random
-random.seed(seed_value)
-
+import numpy as np
+import tensorflow as tf
 from tensorflow.python.keras.models import Model, load_model
 from tensorflow.python.keras.layers import Input, CuDNNLSTM, LSTM, Dense, Concatenate, Bidirectional
 from tensorflow.python.keras.callbacks import Callback, TensorBoard, EarlyStopping, ModelCheckpoint
@@ -95,7 +83,7 @@ def transform_data(sequence_groups, sample_rate=250):
 print("SESSION:")
 print(config.files)
 timeString = time.strftime("%Y%m%d-%H%M%S", time.localtime())
-log_name = "{}_e{}_b{}_sents_bidir_nora_CV_{}".format(timeString, config.num_epochs, config.batch_size, config.files[-1])
+log_name = "{}_e{}_b{}_phonemes_bidir_nora_CV_{}".format(timeString, config.num_epochs, config.batch_size, "-".join(config.files))
 result_file = open(log_name + ".txt", "w")
 result_file.write(str(config.files))
 
@@ -106,6 +94,7 @@ with open(config.data_maps, 'r') as f:
 # Read input files
 training_files = []
 for data_file in input_data:
+    #if config.files in data_file['type']:
     if any(sess in data_file['type'] for sess in config.files):
     #if 'sentences_nora_sess1' in data_file['type'] or 'sentences_nora_sess2' in data_file['type'] or 'sentences_nora_sess3' in data_file['type'] or 'sentences_nora_sess4' in data_file['type'] or 'sentences_nora_sess5' in data_file['type'] or 'sentences_nora_sess6' in data_file['type'] or 'sentences_nora_sess7' in data_file['type'] or 'sentences_utkarsh_sess8' in data_file['type']:
         train_file = data_proc.process_scrambled(data_file['labels'], [config.file_path + data_file['filename']],
@@ -128,11 +117,10 @@ train_sequences, train_labels = data_proc.get_inputs(training_sequence_groups)
 print(train_sequences.shape)
 
 train_sequences = transform_data(train_sequences)
-print(len(train_sequences))
 
-result_file.write('\nsentences_label_map_caseInsensitive_splitContract\n')
-label_map = config.sentences_label_map_caseInsensitive_splitContract
-label_map = label_map[:len(train_sequences)]
+result_file.write('\nphoneme_label_map\n')
+label_map = config.phoneme_label_map
+label_map = label_map[:config.num_samples]
 print("Label map:", len(label_map))
 
 # fix number of classes: should adapt according to input files
@@ -147,6 +135,7 @@ train_labels = np.array(map(lambda i: label_map[i], train_labels))
 
 max_input_length = max(map(len, train_sequences))
 max_labels_length = max(map(len, train_labels))
+print(max_labels_length)
 result_file.write('\nMax input length:{}\n'.format(max_input_length))
 
 train_sequences_all = data_proc.transform.pad_truncate(train_sequences, max_input_length, position=0.0, value=-1e8)
@@ -192,10 +181,6 @@ for fold in list(range(config.num_folds)):
 
     # reset model
     K.clear_session()
-    # Configure a new global `tensorflow` session
-    session_conf = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
-    sess = tf.Session(graph=tf.get_default_graph(), config=session_conf)
-    K.set_session(sess)
 
     # split data into train and test
     print("Fold:", fold)
@@ -204,8 +189,10 @@ for fold in list(range(config.num_folds)):
     print("Training:", len(train_seqs))
     print("Testing:", len(test_seqs))
 
-    encoder_inputs = Input(shape=(max_input_length, len(config.channels)))
-    encoder = Bidirectional(LSTM(config.latent_dim, return_state=True, return_sequences=True))
+    # Model: BiLSTM encoder, LSTM decoder
+    #encoder_inputs = Input(shape=(max_input_length, len(config.channels)))
+    encoder_inputs = Input(shape=(None, len(config.channels)))
+    encoder = Bidirectional(LSTM(config.latent_dim, return_state=True, return_sequences=False))
     encoder_outputs, forward_h, forward_c, backward_h, backward_c = encoder(encoder_inputs)
 
     state_h = Concatenate()([forward_h, backward_h])
@@ -225,17 +212,15 @@ for fold in list(range(config.num_folds)):
 
         decoder_concat_input = Concatenate(axis=-1, name='concat_layer')([decoder_outputs, attn_outputs])
         decoder_dense = Dense(num_classes, activation=config.activation_function)
-        decoder_pred = decoder_dense(decoder_concat_input)
+        decoder_outputs = decoder_dense(decoder_concat_input)
     else:
         # no attention mechanism
         decoder_dense = Dense(num_classes, activation=config.activation_function)
-        decoder_pred = decoder_dense(decoder_outputs)
+        decoder_outputs = decoder_dense(decoder_outputs)
 
-    model = Model([encoder_inputs, decoder_inputs], decoder_pred)
-    model.compile(optimizer=optimizers.SGD(lr=config.learning_rate, decay=config.decay),
+    model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
+    model.compile(optimizer=optimizers.Adam(lr=config.learning_rate, decay=config.decay),
                   loss='categorical_crossentropy', metrics=['accuracy'])
-    #model.compile(optimizer=optimizers.Adam(lr=config.learning_rate, decay=config.decay),
-     #             loss='categorical_crossentropy', metrics=['accuracy'])
 
     encoder_model = Model(encoder_inputs, encoder_states)
 
@@ -257,17 +242,13 @@ for fold in list(range(config.num_folds)):
         mc = ModelCheckpoint('best_model_{}_f{}.h5'.format(log_name, str(fold)), monitor='val_loss', mode='min', save_best_only=True,
                              verbose=0)
         history = model.fit([train_seqs, train_labs[:, :-1, :]], train_labs[:, 1:, :],
-                            validation_split=0.1, shuffle=False,
+                            validation_split=0.1,
                             batch_size=config.batch_size, epochs=config.num_epochs,
                             callbacks=[tensorboard, es, mc], verbose=1)
 
         result_file.write("\nFinal train acc:%.2f%%, train loss:%.4f%%, val acc:%.2f%%, val loss:%.4f%%\n" % (
             history.history['acc'][-1], history.history['loss'][-1], history.history['val_acc'][-1],
             history.history['val_loss'][-1]))
-
-        scores = model.evaluate([test_seqs, test_labs[:, :-1, :]], test_labs[:, 1:, :], verbose=1)
-        print("Fold %i %s on test: %.2f%%" % (fold, model.metrics_names[1], scores[1] * 100))
-        result_file.write("\nFold %i %s on test: %.2f%%\n" % (fold, model.metrics_names[1], scores[1] * 100))
 
         # evaluate the saved best model of this fold on the test set (is stopping early)
         best_model = load_model('best_model_{}_f{}.h5'.format(log_name, str(fold)))
@@ -280,7 +261,7 @@ for fold in list(range(config.num_folds)):
         print(train_seqs.shape)
         print(train_labs.shape)
         history = model.fit([train_seqs, train_labs[:, :-1, :]], train_labs[:, 1:, :],
-                            validation_split=0.1, shuffle=False,
+                            validation_split=0.1,
                             batch_size=config.batch_size, epochs=config.num_epochs,
                             callbacks=[tensorboard], verbose=1)
         result_file.write("\nTrain acc:%.2f%%, train loss:%.4f%%, val acc:%.2f%%, val loss:%.4f%%\n" % (
