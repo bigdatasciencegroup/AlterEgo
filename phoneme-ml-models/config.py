@@ -8,7 +8,7 @@ channels = range(0, 8)
 surrounding = 250
 sample_rate = 250
 # number of words in dataset
-num_classes = 306 # 153 # 4757
+num_classes = 153 # 306 # 153 # 4757
 
 # MODEL CONFIG
 model = ""  # lstm, bilstm, bi-att
@@ -21,8 +21,8 @@ latent_dim = 512
 with_attention = False
 enc_dropout_rate = 0
 enc_recurrent_dropout_rate = 0
-dec_dropout_rate = 0.5 # 0.7 # 0.5
-dec_recurrent_dropout_rate = 0 # 0.8 # 0.7
+dec_dropout_rate = 0 # 0.7 # 0.5
+dec_recurrent_dropout_rate = 0.5 # 0.8 # 0.7
 early_stopping = False
 activation = 'softmax'
 
