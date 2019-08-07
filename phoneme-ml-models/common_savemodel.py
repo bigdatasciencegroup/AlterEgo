@@ -93,6 +93,11 @@ for data_file in input_data:
                                    sample_rate=config.sample_rate, surrounding=config.surrounding, exclude=set([]),
                                    num_classes=config.num_classes)
         training_files.append(train_file)
+    if data_file['type'] == 'phonemes_common_utkarsh_s2':
+        train_file = data_proc.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
+                                   sample_rate=config.sample_rate, surrounding=config.surrounding, exclude=set([]),
+                                   num_classes=config.num_classes)
+        training_files.append(train_file)
 
 training_sequence_groups = data_proc.combine(training_files)
 

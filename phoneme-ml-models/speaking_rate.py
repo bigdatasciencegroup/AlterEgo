@@ -17,7 +17,7 @@ with open(config.data_maps, 'r') as f:
 # Read input files
 training_files = []
 for data_file in input_data:
-    if data_file['type'] == 'phonemes_common_utkarsh':
+    if data_file['type'] == 'phonemes_common_utkarsh_s1':
         train_file = data_proc.process_scrambled(data_file['labels'], [config.file_path + data_file['filename']],
                                                  channels=channels,
                                                  sample_rate=sample_rate, surrounding=0,
@@ -34,4 +34,4 @@ lens = map(len, data_proc.get_inputs(training_sequence_groups)[0])
 print min(lens), np.mean(lens), max(lens)
 
 t_min, t_av, t_max = min(lens)/250, np.mean(lens)/250, max(lens)/250
-print 'Avg rate :', statistics.mean(map(len, label_map))/t_av
+print '\nAvg rate is {} phonemes per minute'.format(60*statistics.mean(map(len, label_map))/t_av)

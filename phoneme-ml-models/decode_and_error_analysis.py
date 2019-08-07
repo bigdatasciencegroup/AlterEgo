@@ -10,6 +10,7 @@ matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
 from sklearn.utils.multiclass import unique_labels
+from nltk.translate.bleu_score import sentence_bleu
 
 import math
 import statistics
@@ -100,7 +101,7 @@ test_files = []
 #             training_files.append(test_file)
 
 for data_file in input_data:
-    if data_file['type'] == 'phonemes_common_utkarsh':
+    if data_file['type'] == 'phonemes_common_utkarsh_s1':
         train_file = data_proc.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
                                    sample_rate=config.sample_rate, surrounding=config.surrounding, exclude=set([]),
                                    num_classes=config.num_classes)
@@ -306,6 +307,7 @@ def beam_decode(input_seq, encoder_model, decoder_model, max_decoder_seq_length,
     i = 1 # i!=0 coz start symbol already given
 
     while k>0 and i<max_decoder_seq_length:
+        print('-'*130)
         output_tokens, h, c = decoder_model.predict([target_seq_list, h_values_list, c_values_list]) # Takes in target_seq and Encoder states
         output_tokens = np.squeeze(output_tokens, axis=1)
         # print('OUTPUT TOKENS:', output_tokens.shape)
@@ -314,7 +316,8 @@ def beam_decode(input_seq, encoder_model, decoder_model, max_decoder_seq_length,
         # Calc  probs
         top_k_output_tokens_ind = np.argsort(output_tokens, axis=1)[:,-k:]
         top_k_output_tokens_prob =  np.sort(output_tokens, axis=1)[:,-k:]
-        decoded_probs_diagonal = np.diag(decoded_probs) 
+        decoded_probs_diagonal = np.diag(decoded_probs)
+        print decoded_probs_diagonal.shape, top_k_output_tokens_prob.shape
         k_probs = np.dot(decoded_probs_diagonal, top_k_output_tokens_prob)
 
         # Update the target sequence (of length 1)
@@ -327,13 +330,12 @@ def beam_decode(input_seq, encoder_model, decoder_model, max_decoder_seq_length,
             rows = np.arange(k)
             cols = np.arange(k)
 
-        target_seq_list = np.zeros((k,1,num_classes))
         selected_token_ind = top_k_output_tokens_ind[rows,cols]
 
-        print('-'*130)
         print(rows)
         print(selected_token_ind)
 
+        target_seq_list = np.zeros((k,1,num_classes))
         target_seq_list[np.arange(k),0,selected_token_ind]=1
 
         decoded_temp_list = decoded_seq_list[rows]
@@ -348,11 +350,21 @@ def beam_decode(input_seq, encoder_model, decoder_model, max_decoder_seq_length,
 
         # Delete finished branches
         to_be_deleted = []
-        for a,b in zip(rows,cols):
+        # for a,b in zip(rows,cols):
+        #     if top_k_output_tokens_ind[a,b]==end_symbol:
+        #         output_seq_list.append(list(decoded_seq_list[a]))
+        #         output_probs_list.append(decoded_probs[a])
+        #         to_be_deleted.append(a)
+        idx_list = []
+        for idx,(a,b) in enumerate(zip(rows,cols)):
             if top_k_output_tokens_ind[a,b]==end_symbol:
                 output_seq_list.append(list(decoded_seq_list[a]))
                 output_probs_list.append(decoded_probs[a])
                 to_be_deleted.append(a)
+                idx_list.append(idx)
+        target_seq_list = np.delete(target_seq_list, idx_list, axis=0)
+        h_values_list = np.delete(h_values_list, idx_list, axis=0)
+        c_values_list = np.delete(c_values_list, idx_list, axis=0)
 
         '''
         to_be_deleted = rows[np.where(top_k_output_tokens_ind[rows,cols]==end_symbol)]
@@ -506,6 +518,7 @@ def error_rate(sequences, labels, encoder_model, decoder_model, max_decoder_seq_
     if decode=='batch_greedy_decode':
         pred_labels = batch_greedy_decode(sequences, encoder_model, decoder_model,\
          max_decoder_seq_length, start_symbol, end_symbol, num_classes)
+
     # print act_labels
     # print
     # print pred_labels
@@ -518,6 +531,7 @@ def error_rate(sequences, labels, encoder_model, decoder_model, max_decoder_seq_
         norm_distance_list.append(norm_distance)
 
     return statistics.mean(norm_distance_list)
+
 
 def bit_rate(application_speed, error_rate_, vocabulary_size):
     '''bit-rate (also referred to as Wolpaw rate), as explained by Kronegg et al. and originally proposed by Wolpaw et al.
@@ -537,14 +551,14 @@ def bit_rate(application_speed, error_rate_, vocabulary_size):
 
 
 # Enter the model name, sequences, labels and class_names
-log_name = '20190805-194058_e500_b80_phon_common_utkarsh'
-# log_name = '20190804-205820_e500_b80_phon_common_utkarsh' # training loss = 0.98, val loss = 1.56, per = 58.1% on training data, 97.8% on val data, 96.6% on test data
+# log_name = '20190806-103928_e500_b80_phon_common_utkarsh'
+log_name = '20190804-205820_e500_b80_phon_common_utkarsh' # training loss = 0.98, val loss = 1.56, per = 58.1% on training data, 97.8% on val data, 96.6% on test data
 # log_name = '20190803-200253_e2500_b80_phon_common_utkarsh' # training loss = 0.24, val loss = 2.4, per =  4.3% on training data, 107.4% on val data, 99.2% on test data
 # log_name = '20190802-224937_e1000_b80_phon_common_utkarsh' # training loss = 0.37, val loss = 2.224, per =  12.8% on training data
 # log_name = '20190724-110527_e100_b80_phon_bidir_utkarsh_CV' # Max validation = 32.6%, Fold 0 acc on test: 14.34%
 # log_name = '20190719-234522_e2_b20_phon_bidir_utkarsh_CV' #2 epoch model
-sequences = test_sequences # train_sequences[:247]
-labels = test_labels # train_labels[:247]
+sequences = train_sequences[250:255] # test_sequences # train_sequences[:247]
+labels = train_labels[250:255] # test_labels # train_labels[:247]
 # class_names = ['AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'EH', 'ER', 'EY', 'IH', 'IY', 'OW', 'UW', 'CH', 'D', 'G', 'HH', 'JH', 'K', 'L', 'N', 'NG', 'R', 'S', 'SH', 'T', 'TH', 'Y', 'Z', '<start>', '<end>']
 class_names = ['AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'EH', 'ER', 'EY', 'IH', 'IY', 'OW', 'UH', 'UW', 'CH', 'D', 'DH', 'G', 'HH', 'JH', 'K', 'L', 'N', 'NG', 'R', 'S', 'SH', 'T', 'TH', 'Y', 'Z', 'P', 'B', 'F', 'M', 'V', 'W', '<start>', '<end>']
 
@@ -570,12 +584,14 @@ for label in np.argmax(labels, axis=-1).tolist():
 print
 print actual_labels
 print [list(x) for x in batch_greedy_decode(sequences, encoder_model, decoder_model, 15, start_symbol, end_symbol, num_classes)]
-print error_rate(sequences, labels, encoder_model, decoder_model, 15, start_symbol, end_symbol, num_classes)
+# for sequence in sequences:     
+#     print beam_decode(sequence, encoder_model, decoder_model, 15, start_symbol, end_symbol, num_classes, k=10)
+# print error_rate(sequences, labels, encoder_model, decoder_model, 15, start_symbol, end_symbol, num_classes)
 # print bit_rate(9,0.8,7)
 # plot_confusion_matrix(sequences, labels, np.array(class_names),
 #                       title='Confusion matrix, without normalization')
 # # Plot normalized confusion matrix
-plot_confusion_matrix(sequences, labels, np.array(class_names), encoder_model, decoder_model, 15,\
- start_symbol, end_symbol, num_classes, normalize=True, title='Normalized confusion matrix')
-plt.show()
+# plot_confusion_matrix(sequences, labels, np.array(class_names), encoder_model, decoder_model, 15,\
+#  start_symbol, end_symbol, num_classes, normalize=True, title='Normalized confusion matrix')
+# plt.show()
 
