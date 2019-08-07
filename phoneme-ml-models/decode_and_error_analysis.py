@@ -588,8 +588,8 @@ for label in np.argmax(labels, axis=-1).tolist():
 print
 print actual_labels
 print [list(x) for x in batch_greedy_decode(sequences, encoder_model, decoder_model, 15, start_symbol, end_symbol, num_classes)]
-for sequence in sequences:     
-    print beam_decode(sequence, encoder_model, decoder_model, 15, start_symbol, end_symbol, num_classes, k=5)
+# for sequence in sequences:     
+#     print beam_decode(sequence, encoder_model, decoder_model, 15, start_symbol, end_symbol, num_classes, k=5)
 # print error_rate(sequences, labels, encoder_model, decoder_model, 15, start_symbol, end_symbol, num_classes)
 # print bit_rate(9,0.8,7)
 # plot_confusion_matrix(sequences, labels, np.array(class_names),
