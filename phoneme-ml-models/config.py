@@ -13,7 +13,7 @@ num_classes = 153 # 306 # 153 # 4757
 # MODEL CONFIG
 model = ""  # lstm, bilstm, bi-att
 
-num_epochs = 2500
+num_epochs = 1500
 batch_size = 80
 learning_rate = 1e-3
 decay = 0.2
