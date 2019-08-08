@@ -88,16 +88,16 @@ with open(config.data_maps, 'r') as f:
 training_files = []
 test_files = []
 for data_file in input_data:
-    # if data_file['type'] == 'phonemes_common_utkarsh_s1':
-    #     train_file = data_proc.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
-    #                                sample_rate=config.sample_rate, surrounding=config.surrounding, exclude=set([]),
-    #                                num_classes=config.num_classes)
-    #     training_files.append(train_file)
-    if data_file['type'] == 'phonemes_common_utkarsh_s2':
+    if data_file['type'] == 'phonemes_common_utkarsh_s1':
         train_file = data_proc.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
                                    sample_rate=config.sample_rate, surrounding=config.surrounding, exclude=set([]),
                                    num_classes=config.num_classes)
         training_files.append(train_file)
+    # if data_file['type'] == 'phonemes_common_utkarsh_s2':
+    #     train_file = data_proc.process_scrambled(data_file['labels'], [config.file_path+data_file['filename']], channels=config.channels,
+    #                                sample_rate=config.sample_rate, surrounding=config.surrounding, exclude=set([]),
+    #                                num_classes=config.num_classes)
+    #     training_files.append(train_file)
 
 training_sequence_groups = data_proc.combine(training_files)
 
@@ -170,95 +170,84 @@ result_file.write('# HYPERPARAMETERS:\nepochs:{}\nbatch size:{}\nlatent dim:{}\n
 # Cross validation
 cvscores = []
 
-try:
-    for fold in list(range(config.num_folds)):
-        # reset model
-        K.clear_session()
-        print "Fold:", fold
-        # result_file.write("Fold: " + str(fold))
-        train_sequences, train_labels, test_sequences, test_labels = split_data(fold, train_sequences_all, train_labels_all)
-        print "Training:", len(train_sequences) # 275, (247 + 28)
-        print "Testing:", len(test_sequences) # 31
+for fold in list(range(config.num_folds)):
+    # reset model
+    K.clear_session()
+    print "Fold:", fold
+    # result_file.write("Fold: " + str(fold))
+    train_sequences, train_labels, test_sequences, test_labels = split_data(fold, train_sequences_all, train_labels_all)
+    print "Training:", len(train_sequences) # 275, (247 + 28)
+    print "Testing:", len(test_sequences) # 31
 
-        # Model: BiLSTM encoder, LSTM decoder
-        # todo: run grid search to define hyperparameters
-        # todo: test dropout
-        # dropout_rate = 0.4
-        encoder_inputs = Input(shape=(None, len(config.channels)))
-        encoder = Bidirectional(LSTM(config.latent_dim, return_state=True, return_sequences=False, dropout=config.enc_dropout_rate, recurrent_dropout=config.enc_recurrent_dropout_rate))
-        encoder_outputs, forward_h, forward_c, backward_h, backward_c = encoder(encoder_inputs)
+    # Model: BiLSTM encoder, LSTM decoder
+    # todo: run grid search to define hyperparameters
+    # todo: test dropout
+    # dropout_rate = 0.4
+    encoder_inputs = Input(shape=(None, len(config.channels)))
+    encoder = Bidirectional(LSTM(config.latent_dim, return_state=True, return_sequences=False, dropout=config.enc_dropout_rate, recurrent_dropout=config.enc_recurrent_dropout_rate))
+    encoder_outputs, forward_h, forward_c, backward_h, backward_c = encoder(encoder_inputs)
 
-        state_h = Concatenate()([forward_h, backward_h])
-        state_c = Concatenate()([forward_c, backward_c])
-        encoder_states = [state_h, state_c]
+    state_h = Concatenate()([forward_h, backward_h])
+    state_c = Concatenate()([forward_c, backward_c])
+    encoder_states = [state_h, state_c]
 
-        decoder_inputs = Input(shape=(None, num_classes))
-        decoder_lstm = LSTM(config.latent_dim * 2, return_sequences=True, return_state=True, dropout=config.dec_dropout_rate, recurrent_dropout=config.dec_recurrent_dropout_rate)
-        decoder_outputs, _, _ = decoder_lstm(decoder_inputs, initial_state=encoder_states)
+    decoder_inputs = Input(shape=(None, num_classes))
+    decoder_lstm = LSTM(config.latent_dim * 2, return_sequences=True, return_state=True, dropout=config.dec_dropout_rate, recurrent_dropout=config.dec_recurrent_dropout_rate)
+    decoder_outputs, _, _ = decoder_lstm(decoder_inputs, initial_state=encoder_states)
 
-        if config.with_attention is True:
-            # Using Bahdanau attention for MT: https://arxiv.org/pdf/1409.0473.pdf
-            # Code from: https://github.com/thushv89/attention_keras
-            attn_layer = AttentionLayer(name='attention_layer')
-            attn_outputs, attn_states = attn_layer([encoder_outputs, decoder_outputs])
+    if config.with_attention is True:
+        # Using Bahdanau attention for MT: https://arxiv.org/pdf/1409.0473.pdf
+        # Code from: https://github.com/thushv89/attention_keras
+        attn_layer = AttentionLayer(name='attention_layer')
+        attn_outputs, attn_states = attn_layer([encoder_outputs, decoder_outputs])
 
-            decoder_concat_input = Concatenate(axis=-1, name='concat_layer')([decoder_outputs, attn_outputs])
-            decoder_dense = Dense(num_classes, activation=config.activation)
-            decoder_outputs = decoder_dense(decoder_concat_input)
-        else:
-            # no attention mechanism
-            decoder_dense = Dense(num_classes, activation=config.activation)
-            decoder_outputs = decoder_dense(decoder_outputs)
-
-        model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
-        model.compile(optimizer=optimizers.Adam(lr=config.learning_rate, decay=config.decay), loss='categorical_crossentropy')
-
-        encoder_model = Model(encoder_inputs, encoder_states)
-
-        decoder_state_input_h = Input(shape=(config.latent_dim * 2,))
-        decoder_state_input_c = Input(shape=(config.latent_dim * 2,))
-        decoder_states_inputs = [decoder_state_input_h, decoder_state_input_c]
-        decoder_outputs, state_h, state_c = decoder_lstm(decoder_inputs, initial_state=decoder_states_inputs)
-        decoder_states = [state_h, state_c]
+        decoder_concat_input = Concatenate(axis=-1, name='concat_layer')([decoder_outputs, attn_outputs])
+        decoder_dense = Dense(num_classes, activation=config.activation)
+        decoder_outputs = decoder_dense(decoder_concat_input)
+    else:
+        # no attention mechanism
+        decoder_dense = Dense(num_classes, activation=config.activation)
         decoder_outputs = decoder_dense(decoder_outputs)
-        decoder_model = Model([decoder_inputs] + decoder_states_inputs, [decoder_outputs] + decoder_states)
 
-        tensorboard = TensorBoard(log_dir="logs_CV/{}_f{}".format(log_name, str(fold)), histogram_freq=1, write_graph=True, write_images=False)
+    model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
+    model.compile(optimizer=optimizers.Adam(lr=config.learning_rate, decay=config.decay), loss='categorical_crossentropy')
 
-        if config.early_stopping is True:
-            # stop training if val accuracy has not improved since X epochs
-            es = EarlyStopping(monitor='val_acc', mode='max', verbose=0, patience=10, min_delta=0.05)
-            # save the best model before the stopping point
-            mc = ModelCheckpoint('best_model_f{}.h5'.format(fold), monitor='val_acc', mode='max', save_best_only=True,
-                                 verbose=0)
-            model.fit([train_sequences, train_labels[:, :-1, :]], train_labels[:, 1:, :],
-                      validation_split=0.1,
-                      batch_size=config.batch_size, epochs=config.num_epochs,
-                      callbacks=[tensorboard, es, mc], verbose=1)
-            # evaluate the saved best model of this fold on the test set (is stopping early)
-            model = load_model('best_model_f{}.h5'.format(fold))
+    encoder_model = Model(encoder_inputs, encoder_states)
 
-        else:
-            model.fit([train_sequences, train_labels[:, :-1, :]], train_labels[:, 1:, :],
-                      validation_split=0.1,
-                      batch_size=config.batch_size, epochs=config.num_epochs,
-                      callbacks=[tensorboard], verbose=1)
+    decoder_state_input_h = Input(shape=(config.latent_dim * 2,))
+    decoder_state_input_c = Input(shape=(config.latent_dim * 2,))
+    decoder_states_inputs = [decoder_state_input_h, decoder_state_input_c]
+    decoder_outputs, state_h, state_c = decoder_lstm(decoder_inputs, initial_state=decoder_states_inputs)
+    decoder_states = [state_h, state_c]
+    decoder_outputs = decoder_dense(decoder_outputs)
+    decoder_model = Model([decoder_inputs] + decoder_states_inputs, [decoder_outputs] + decoder_states)
 
-    model.summary(print_fn=lambda x: result_file.write(x + '\n'))
-    model.save('SavedModels/Full_{}.h5'.format(log_name))
-    print 'Model Full_{}.h5 saved in SavedModels'.format(log_name)
-    encoder_model.save('SavedModels/Encoder_{}.h5'.format(log_name))
-    print 'Model Encoder_{}.h5 saved in SavedModels'.format(log_name)
-    decoder_model.save('SavedModels/Decoder_{}.h5'.format(log_name))
-    print 'Model Decoder_{}.h5 saved in SavedModels'.format(log_name)
+    tensorboard = TensorBoard(log_dir="logs_CV/{}_f{}".format(log_name, str(fold)), histogram_freq=1, write_graph=True, write_images=False)
 
+    if config.early_stopping is True:
+        # stop training if val accuracy has not improved since X epochs
+        es = EarlyStopping(monitor='val_acc', mode='max', verbose=0, patience=10, min_delta=0.05)
+        # save the best model before the stopping point
+        mc = ModelCheckpoint('best_model_f{}.h5'.format(fold), monitor='val_acc', mode='max', save_best_only=True,
+                             verbose=0)
+        model.fit([train_sequences, train_labels[:, :-1, :]], train_labels[:, 1:, :],
+                  validation_split=0.1,
+                  batch_size=config.batch_size, epochs=config.num_epochs,
+                  callbacks=[tensorboard, es, mc], verbose=1)
+        # evaluate the saved best model of this fold on the test set (is stopping early)
+        model = load_model('best_model_f{}.h5'.format(fold))
 
-except KeyboardInterrupt:
+    else:
+        model.fit([train_sequences, train_labels[:, :-1, :]], train_labels[:, 1:, :],
+                  validation_split=0.1,
+                  batch_size=config.batch_size, epochs=config.num_epochs,
+                  callbacks=[tensorboard], verbose=1)
 
-    model.save('SavedModels/{}.h5'.format(log_name))
-    print 'Model Full_{}.h5 saved in SavedModels'.format(log_name)
-    encoder_model.save('SavedModels/Encoder_{}.h5'.format(log_name))
-    print 'Model Encoder_{}.h5 saved in SavedModels'.format(log_name)
-    decoder_model.save('SavedModels/Decoder_{}.h5'.format(log_name))
-    print 'Model Decoder_{}.h5 saved in SavedModels'.format(log_name)
+model.summary(print_fn=lambda x: result_file.write(x + '\n'))
+model.save('SavedModels/Full_{}.h5'.format(log_name))
+print 'Model Full_{}.h5 saved in SavedModels'.format(log_name)
+encoder_model.save('SavedModels/Encoder_{}.h5'.format(log_name))
+print 'Model Encoder_{}.h5 saved in SavedModels'.format(log_name)
+decoder_model.save('SavedModels/Decoder_{}.h5'.format(log_name))
+print 'Model Decoder_{}.h5 saved in SavedModels'.format(log_name)
 
