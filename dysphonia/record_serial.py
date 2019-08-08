@@ -76,7 +76,7 @@ def transform_data(sequence_groups, sample_rate=250):
     
     return sequence_groups
 
-word_map = ['good morning', 'thanks a lot', 'goodbye', 'nice meeting you', 'best of luck', 'how are you', 'want to sleep', 'help me', 'very hungry', 'bathroom please', 'hello there', 'you are welcome', 'see you later', 'super tired', 'doing good', 'Finished Finished Finished Finished Finished']
+word_map = ['hello there good morning', 'thank you i appreciate it', 'goodbye see you later', 'it was nice meeting you', 'wish you luck and success', 'how are you doing today', 'i want to sleep now', 'can you please help me', 'i am very hungry', 'going to bathroom', 'you are welcome', 'super tired already', 'i have been doing good', 'what is your name', 'i feel sorry for that', 'Finished Finished Finished Finished Finished']
 '''
 1) [6, 6, 2, 5, 5, 3, 6, 3, 4, 5, 3, 2, 8, 3, 7, 0, 2, 4, 3, 8, 3, 2, 3, 1, 5]
 2) [8, 6, 9, 2, 6, 0, 0, 0, 8, 1, 7, 8, 6, 3, 4, 1, 1, 2, 1, 4, 5, 7, 0, 8, 5]
