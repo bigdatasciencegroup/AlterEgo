@@ -165,6 +165,7 @@ log_name = "{}_e{}_b{}_phon_common_utkarsh".format(timeString, config.num_epochs
 result_file = open("ResultFiles/" + log_name + ".txt", "w")
 # Print header
 result_file.write('# HYPERPARAMETERS:\nepochs:{}\nbatch size:{}\nlatent dim:{}\nlearning rate:{}\ndecay:{}\nattention:{}\nearly stopping:{}\nfolds:{}\nencoder dropout rate:{}\nencoder recurrent dropout rate:{}\ndecoder dropout rate:{}\ndecoder recurrent dropout rate:{}\n'.format(config.num_epochs, config.batch_size, config.latent_dim, config.learning_rate, config.decay, config.with_attention, config.early_stopping, config.num_folds, config.enc_dropout_rate, config.enc_recurrent_dropout_rate, config.dec_dropout_rate, config.dec_recurrent_dropout_rate))
+print '# HYPERPARAMETERS:\nepochs:{}\nbatch size:{}\nlatent dim:{}\nlearning rate:{}\ndecay:{}\nattention:{}\nearly stopping:{}\nfolds:{}\nencoder dropout rate:{}\nencoder recurrent dropout rate:{}\ndecoder dropout rate:{}\ndecoder recurrent dropout rate:{}\n'.format(config.num_epochs, config.batch_size, config.latent_dim, config.learning_rate, config.decay, config.with_attention, config.early_stopping, config.num_folds, config.enc_dropout_rate, config.enc_recurrent_dropout_rate, config.dec_dropout_rate, config.dec_recurrent_dropout_rate)
 # result_file.write('epoch, training_loss, training_acc, max_validation_accuracy, val_loss, validation_accuracy\n')
 
 # Cross validation

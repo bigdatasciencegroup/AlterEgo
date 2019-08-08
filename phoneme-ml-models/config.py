@@ -20,9 +20,9 @@ decay = 0.2
 latent_dim = 512
 with_attention = False
 enc_dropout_rate = 0
-enc_recurrent_dropout_rate = 0
+enc_recurrent_dropout_rate = 0.8
 dec_dropout_rate = 0 # 0.7 # 0.5
-dec_recurrent_dropout_rate = 0.8 # 0.8 # 0.7
+dec_recurrent_dropout_rate = 0 # 0.8 # 0.7
 early_stopping = False
 activation = 'softmax'
 
