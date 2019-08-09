@@ -563,14 +563,14 @@ def bit_rate(application_speed, error_rate_, vocabulary_size):
 
 
 # Enter the model name, sequences, labels and class_names
-# log_name = '20190807-165445_e1500_b80_phon_common_utkarsh'
+log_name = '20190808-182222_e500_b80_phon_common_utkarsh'
 # log_name = '20190804-205820_e500_b80_phon_common_utkarsh' # training loss = 0.98, val loss = 1.56, per = 58.1% on training data, 97.8% on val data, 96.6% on test data
-log_name = '20190803-200253_e2500_b80_phon_common_utkarsh' # training loss = 0.24, val loss = 2.4, per =  4.3% on training data, 107.4% on val data, 99.2% on test data
+# log_name = '20190803-200253_e2500_b80_phon_common_utkarsh' # training loss = 0.24, val loss = 2.4, per =  4.3% on training data, 107.4% on val data, 99.2% on test data
 # log_name = '20190802-224937_e1000_b80_phon_common_utkarsh' # training loss = 0.37, val loss = 2.224, per =  12.8% on training data
 # log_name = '20190724-110527_e100_b80_phon_bidir_utkarsh_CV' # Max validation = 32.6%, Fold 0 acc on test: 14.34%
 # log_name = '20190719-234522_e2_b20_phon_bidir_utkarsh_CV' #2 epoch model
-sequences = train_sequences[247:] # test_sequences # train_sequences[:247]
-labels = train_labels[247:] # test_labels # train_labels[:247]
+sequences = train_sequences[:247] # test_sequences # train_sequences[:247]
+labels = train_labels[:247] # test_labels # train_labels[:247]
 # class_names = ['AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'EH', 'ER', 'EY', 'IH', 'IY', 'OW', 'UW', 'CH', 'D', 'G', 'HH', 'JH', 'K', 'L', 'N', 'NG', 'R', 'S', 'SH', 'T', 'TH', 'Y', 'Z', '<start>', '<end>']
 class_names = ['AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'EH', 'ER', 'EY', 'IH', 'IY', 'OW', 'UH', 'UW', 'CH', 'D', 'DH', 'G', 'HH', 'JH', 'K', 'L', 'N', 'NG', 'R', 'S', 'SH', 'T', 'TH', 'Y', 'Z', 'P', 'B', 'F', 'M', 'V', 'W', '<start>', '<end>']
 
@@ -598,12 +598,12 @@ print actual_labels
 # print [list(x) for x in batch_greedy_decode(sequences, encoder_model, decoder_model, 15, start_symbol, end_symbol, num_classes)]
 # for sequence in sequences:     
 #     print beam_decode(sequence, encoder_model, decoder_model, 15, start_symbol, end_symbol, num_classes, k=5)
-print error_rate(sequences, labels, encoder_model, decoder_model, 15, start_symbol, end_symbol, num_classes, 'beam_decode', k=5)
+print error_rate(sequences, labels, encoder_model, decoder_model, 15, start_symbol, end_symbol, num_classes)
 # print bit_rate(9,0.8,7)
 # plot_confusion_matrix(sequences, labels, np.array(class_names),
 #                       title='Confusion matrix, without normalization')
 # # Plot normalized confusion matrix
-# plot_confusion_matrix(sequences, labels, np.array(class_names), encoder_model, decoder_model, 15,\
-#  start_symbol, end_symbol, num_classes, normalize=True, title='Normalized confusion matrix')
-# plt.show()
+plot_confusion_matrix(sequences, labels, np.array(class_names), encoder_model, decoder_model, 15,\
+ start_symbol, end_symbol, num_classes, normalize=True, title='Normalized confusion matrix')
+plt.show()
 
