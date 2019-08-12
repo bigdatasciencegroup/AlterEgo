@@ -150,6 +150,6 @@ def on_data(history, trigger_history, index_history, count, samples_per_update, 
     print
 
 
-preprocessing.serial.start('/dev/tty.usbserial-DM01HUN9',
+preprocessing.serial.start('/dev/tty.usbserial-DM01HQ99',
                   on_data, channels=channels, transform_fn=transform_data,
                   history_size=2500, shown_size=1200, override_step=100, bipolar=False)  # 35
