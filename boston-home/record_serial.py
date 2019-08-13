@@ -66,14 +66,15 @@ def transform_data(sequence_groups, sample_rate=250):
 
 word_map = ['hello there good morning', 'thank you i appreciate it', 'goodbye see you later', 'it was nice meeting you', 'wish you luck and success', 'how are you doing today', 'i want to sleep now', 'can you please help me', 'i am very hungry', 'going to the bathroom', 'you are welcome', 'super tired already', 'i have been doing good', 'what is your name', 'i feel sorry for that', 'Finished']
 '''
+Sara, Paul, George
 1) [6, 6, 2, 5, 5, 3, 6, 3, 4, 5, 3, 2, 8, 3, 7, 0, 2, 4, 3, 8, 3, 2, 3, 1, 5]
 2) [8, 6, 9, 2, 6, 0, 0, 0, 8, 1, 7, 8, 6, 3, 4, 1, 1, 2, 1, 4, 5, 7, 0, 8, 5]
 3) [1, 9, 0, 4, 8, 0, 1, 5, 3, 2, 0, 1, 6, 7, 9, 5, 2, 4, 4, 9, 9, 9, 9, 7, 8]
 4) [9, 0, 4, 2, 7, 5, 7, 1, 6, 9, 5, 8, 2, 8, 0, 7, 6, 1, 3, 9, 6, 7, 4, 7, 4]
-
 5) [13, 11, 10, 11, 12, 12, 13, 11, 12, 14, 13, 10, 11, 14, 13, 12, 14, 10, 13, 14, 10, 10, 12, 11, 12]
 6) [10, 13, 13, 13, 10, 10, 12, 10, 14, 11, 12, 12, 14, 11, 13, 11, 11, 14, 14, 14, 11, 13, 10, 12, 14]
 
+Richard, Tina, Carol
 1) [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 2) [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 3) [2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
@@ -91,7 +92,7 @@ word_map = ['hello there good morning', 'thank you i appreciate it', 'goodbye se
 15) [14, 14, 14, 14, 14, 14, 14, 14, 14, 14]
 '''
 
-labels = [6, 6, 2, 5, 5, 3, 6, 3, 4, 5, 3, 2, 8, 3, 7, 0, 2, 4, 3, 8, 3, 2, 3, 1, 5]
+labels = [14, 14, 14, 14, 14, 14, 14, 14, 14, 14]
 labels = labels + [-1]
 
 def on_data(history, trigger_history, index_history, count, samples_per_update, recorded_count):
