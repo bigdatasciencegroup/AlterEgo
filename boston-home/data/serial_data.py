@@ -30,7 +30,7 @@ step = 50
 sample_count = 0
 recorded_count = 0
     
-def start(device_name, callback_fn, channels=range(0, 8), bipolar=False, history_size=history_size, shown_size=shown_size,
+def start(device_name, callback_fn, channels=range(0, 8), history_size=history_size, shown_size=shown_size,
           transform_fn=transform.default_transform, plot=True, return_transformed=True,
           override_step=None, **kwargs):
     history = [[0.0] * 8 for i in range(history_size)]
@@ -81,10 +81,6 @@ def start(device_name, callback_fn, channels=range(0, 8), bipolar=False, history
             if i not in channels:
                 ser.write(str(i+1))
         ser.write('/3')
-        if bipolar:
-            for i in range(8):
-                if i not in channels:
-                    ser.write('x' + str(i+1) + '060100X')
         ser.write('b')
         
         filename = 'serial_data/data_' + datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S") + '.txt'

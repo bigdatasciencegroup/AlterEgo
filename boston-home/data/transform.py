@@ -3,7 +3,6 @@ from scipy.interpolate import interp1d
 from scipy.signal import butter, iirnotch, lfilter
 from scipy.signal import convolve as _convolve
 from scipy.ndimage.filters import gaussian_filter1d
-from sklearn.decomposition import FastICA
 
 apply_subtract_initial = True
 apply_subtract_mean = False
@@ -109,12 +108,6 @@ def augment_pad_truncate_intervals(data, length, intervals):
     return augment(data, [(pad_truncate, [length], dict(position=pos)) \
                           for pos in np.arange(0, 1+1./(intervals-1), 1./(intervals-1))])
 
-def augment_amplitude_multipliers(data, multipliers):
-    return augment(data, [(multiply, [multiplier], {}) for multiplier in multipliers])
-
-def augment_correlations(data, correlations, include_original=False):
-    return augment(data, [(correlate, [correlation], {}) for correlation in correlations], include_original=include_original)
-
 def apply_recursively(data, fn, modify):
     if type(data[0][0]) in [np.float32, np.float64, float, np.complex128]:
         return fn(data)
@@ -132,9 +125,6 @@ def channel_specific(seq, fn, modify, *args, **kwargs):
 
 def numpify(data, modify=False):
     return apply_recursively(data, np.array, modify)
-
-def multiply(data, multiplier, modify=False):
-    return apply_recursively(data, lambda x: x * multiplier, modify)
 
 # Subtract mean from signals
 def subtract_mean(data, modify=False):
@@ -208,13 +198,13 @@ def stretch_compress(data, length, modify=False):
                              interp1d(range(len(seq)), seq, axis=0)(np.linspace(0, len(seq)-1, length)), modify)
 
 # Compress/expand sequences to average length
-def pad_truncate(data, length, position=0.5, value=0, modify=False):
+def pad_truncate(data, length, position=0.5, modify=False):
     position = max(0, min(position, 1))
     left_size_p = lambda seq: max(0, int((length-len(seq)) * position))
     left_size_t = lambda seq: max(0, int((len(seq)-length) * position))
     return apply_recursively(data, lambda seq:
                              np.pad(seq, ((left_size_p(seq), max(0, int(length)-len(seq))-left_size_p(seq)),(0,0)),
-                                    mode='constant', constant_values=value)[left_size_t(seq):left_size_t(seq)+length,:], modify)
+                                    mode='constant')[left_size_t(seq):left_size_t(seq)+length,:], modify)
 
 # Pad extra amount of space to each side
 def pad_extra(data, length, modify=False):
@@ -251,25 +241,4 @@ def real(data, modify=False):
 
 # Apply downsampling
 def downsample(data, factor, modify=False):
-    return apply_recursively(data, lambda x: x[::factor,:], modify)
-
-# Combines datasets by augmenting the channel dimension
-def augment_channels(sequence_groups_varargs):
-    return np.array([np.array([np.concatenate(map(lambda x: x[i][j], sequence_groups_varargs), axis=1)
-                               for j in range(len(sequence_groups_varargs[0][i]))]) for i in range(len(sequence_groups_varargs[0]))])
-
-# Apply window average
-def _window_average(data, window_size):
-    averaged = np.zeros(np.shape(data))
-    for i in range(len(data)):
-        start = i - window_size // 2
-        end = i + window_size // 2
-        averaged[i,:] = np.mean(data[max(0,start):end+1,:], axis=0)
-    return averaged
-def window_average(data, window_size, modify=False):
-    return apply_recursively(data, lambda seq: _window_average(seq, window_size), modify)
-
-def ica(data, num_components, modify=False):
-    return apply_recursively(data, lambda x: FastICA(n_components=num_components, random_state=0).fit_transform(x), modify)
-    
-
+    return apply_recursively(data, lambda x: x[::4,:], modify)
