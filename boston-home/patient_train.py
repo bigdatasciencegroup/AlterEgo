@@ -84,7 +84,7 @@ def dataset(**kwargs):
 # channels = range(1, 8) # DO NOT CHANGE
 channels = range(0, 8)
 
-total_data = dataset(channels=channels, include_surrounding=False)
+total_data = dataset(channels=channels, surrounding=200)
 print np.array(total_data).shape # (Files, Samples per file)
 sequence_groups = transform_data(total_data)
 print len(sequence_groups) # no. of Files
@@ -96,14 +96,21 @@ training_sequence_groups, validation_sequence_groups = data.split(sequence_group
 print np.array(sequence_groups).shape # (15,10)
 print np.array(training_sequence_groups).shape # (15,7)
 print np.array(validation_sequence_groups).shape # (15,3)
-for x in sequence_groups:   print map(len, x)
+maxes = []
+mins = []
+for x in sequence_groups:
+    print map(len, x)
+    maxes.append(max(map(len, x)))
+    mins.append(min(map(len, x)))
+print max(maxes), min(mins)
+
 
 # Manually selecting different training and validation datasets
 #training_sequence_groups = transform_data(data.digits_session_1_dataset())
 #validation_sequence_groups = transform_data(data.digits_session_4_dataset())
 
 # Pads or truncates each sequence to length
-length = 600 # DO NOT CHANGE
+length = 1000
 training_sequence_groups = data.transform.pad_truncate(training_sequence_groups, length)
 validation_sequence_groups = data.transform.pad_truncate(validation_sequence_groups, length)
 

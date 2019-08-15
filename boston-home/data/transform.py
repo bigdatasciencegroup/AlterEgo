@@ -199,6 +199,8 @@ def stretch_compress(data, length, modify=False):
 
 # Compress/expand sequences to average length
 def pad_truncate(data, length, position=0.5, modify=False):
+    # if position = 1.0, it'll always have the signal on the right end, so pad and truncate from the left
+    # if position = 0.0, it'll always have the signal on the left end, so pad and truncate from the right
     position = max(0, min(position, 1))
     left_size_p = lambda seq: max(0, int((length-len(seq)) * position))
     left_size_t = lambda seq: max(0, int((len(seq)-length) * position))
