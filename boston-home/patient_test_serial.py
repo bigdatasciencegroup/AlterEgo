@@ -107,7 +107,7 @@ saver = tf.train.Saver()
 with tf.Session() as session:
     if test_model:
         tf.global_variables_initializer().run()
-        saver.restore(session, 'checkpoints/tina_model.ckpt')
+        saver.restore(session, 'checkpoints/t_1.ckpt')
         
     displayed = 0
     step = 1

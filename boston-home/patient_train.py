@@ -307,7 +307,7 @@ with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as session:
         validation_loss /= num_validation_samples
         validation_accuracy /= num_validation_samples
         if validation_accuracy > max_validation_accuracy:
-            model_name = 'checkpoints/tina_model.ckpt'
+            model_name = 'checkpoints/t_model.ckpt'
             save_path = saver.save(session, os.path.join(abs_path, model_name))
             best_epoch = epoch
             print ' Model saved:', model_name,
