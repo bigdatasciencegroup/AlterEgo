@@ -27,10 +27,10 @@ def process(num_classes, filepaths, include_surrounding=True, sample_rate=250, c
                 start_index = i
             if speaking and not bool(frames[i][-1]):
                 speaking = False
-                if np.all(map(bool, frames[i-10:i,-1])):
+                if np.all(map(bool, frames[i-50:i,-1])):
                     num += 1
 #                    print i - start_index
-                    sequence_groups[labels[num]].append(frames[start_index-padding:i+padding,channels])
+                    sequence_groups[num % num_classes].append(frames[start_index-padding:i+padding,channels])
 #                    print num, timestamps[start_index]
         if bool(frames[-1][-1]):
             sequence_groups[num % num_classes].append(frames[start_index-padding:,channels])
@@ -79,7 +79,7 @@ def process_scrambled(labels, filepaths, include_surrounding=True, sample_rate=2
                 start_index = i
             if speaking and not bool(frames[i][-1]):
                 speaking = False
-                if np.all(map(bool, frames[i-10:i,-1])):
+                if np.all(map(bool, frames[i-50:i,-1])):
                     num += 1
                     print i - start_index
                     sequence_groups[labels[num]].append(frames[start_index-padding:i+padding,channels])

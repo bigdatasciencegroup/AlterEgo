@@ -73,24 +73,31 @@ def transform_data(sequence_groups, sample_rate=250):
         
 #### Load data
 # def dataset(**kwargs):
-#     patient_dir = 'patient_data'
-# #    patient_dir = 'patient1'
-#     files = map(lambda x: patient_dir + '/' + x, filter(lambda x: '.txt' in x, os.listdir(patient_dir)))
-#     files.sort()
-#     print files
-#     return data.join([data.process(1, [file], **kwargs) for file in files])
+#     filename = 'serial_data/0.txt'
+#     labels = [2, 3, 4, 3, 0, 0, 4, 2, 4, 3, 3, 3, 2, 3, 1, 4, 4, 2, 2, 1, 4, 1, 4, 2, 2, 0, 3, 1, 3, 1, 2, 4, 3, 1, 2, 2, 0, 0, 4, 0, 1, 0, 1, 0, 1, 0, 0, 1, 4, 3]
+#     return data.process_scrambled(labels, [filename], **kwargs)
 
 def dataset(**kwargs):
-    filename = 'serial_data/0.txt'
-    labels = [2, 3, 4, 3, 0, 0, 4, 2, 4, 3, 3, 3, 2, 3, 1, 4, 4, 2, 2, 1, 4, 1, 4, 2, 2, 0, 3, 1, 3, 1, 2, 4, 3, 1, 2, 2, 0, 0, 4, 0, 1, 0, 1, 0, 1, 0, 0, 1, 4, 3]
-    return data.process_scrambled(labels, [filename], **kwargs)
+    patient_dir = 'patient_data/tina'
+    files = map(lambda x: patient_dir + '/' + x, filter(lambda x: '.txt' in x, os.listdir(patient_dir)))
+    files.sort()
+    print files
+    labels = [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],\
+     [3, 3, 3, 3, 3, 3, 3, 3, 3, 3], [4, 4, 4, 4, 4, 4, 4, 4, 4, 4], [5, 5, 5, 5, 5, 5, 5, 5, 5, 5],\
+      [6, 6, 6, 6, 6, 6, 6, 6, 6, 6], [7, 7, 7, 7, 7, 7, 7, 7, 7, 7], [8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\
+       [9, 9, 9, 9, 9, 9, 9, 9, 9, 9], [10, 10, 10, 10, 10, 10, 10, 10, 10, 10], [11, 11, 11, 11, 11, 11, 11, 11, 11, 11],\
+        [12, 12, 12, 12, 12, 12, 12, 12, 12, 12], [13, 13, 13, 13, 13, 13, 13, 13, 13, 13], [14, 14, 14, 14, 14, 14, 14, 14, 14, 14]]
+    return data.join([data.process_scrambled(label, [file], **kwargs) for label, file in zip(labels, files)])
 
-channels = [1, 3, 4, 6] # DO NOT CHANGE
+# channels = [1, 3, 4, 6] # DO NOT CHANGE
+channels = range(8)
 
 sequence_groups = transform_data(dataset(channels=channels))
 print len(sequence_groups)
 print map(len, sequence_groups)
 
+
+'''
 # Split sequence_groups into training and validation data
 training_sequence_groups, validation_sequence_groups = data.split(sequence_groups, 1./3)
 
@@ -338,3 +345,4 @@ with tf.Session() as session:
         table.finalize(divider=not reprint_header)
         if reprint_header:
             table.print_header()
+'''

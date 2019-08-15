@@ -1,5 +1,6 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 import numpy as np
 import tensorflow as tf
@@ -73,21 +74,29 @@ def transform_data(sequence_groups, sample_rate=250):
         
 #### Load data
 def dataset(**kwargs):
-    patient_dir = 'patient_data'
+    patient_dir = 'patient_data/tina'
 #    patient_dir = 'patient1'
     files = map(lambda x: patient_dir + '/' + x, filter(lambda x: '.txt' in x, os.listdir(patient_dir)))
     files.sort()
     print files
     return data.join([data.process(1, [file], **kwargs) for file in files])
 
-channels = range(1, 8) # DO NOT CHANGE
+# channels = range(1, 8) # DO NOT CHANGE
+channels = range(0, 8)
 
-sequence_groups = transform_data(dataset(channels=channels))
-print len(sequence_groups)
-print map(len, sequence_groups)
+total_data = dataset(channels=channels, include_surrounding=False)
+print np.array(total_data).shape # (Files, Samples per file)
+sequence_groups = transform_data(total_data)
+print len(sequence_groups) # no. of Files
+print map(len, sequence_groups) # List of samples per file
 
 # Split sequence_groups into training and validation data
-training_sequence_groups, validation_sequence_groups = data.split(sequence_groups, 1./3)
+training_sequence_groups, validation_sequence_groups = data.split(sequence_groups, 1./3) # test-train split per file
+
+print np.array(sequence_groups).shape # (15,10)
+print np.array(training_sequence_groups).shape # (15,7)
+print np.array(validation_sequence_groups).shape # (15,3)
+for x in sequence_groups:   print map(len, x)
 
 # Manually selecting different training and validation datasets
 #training_sequence_groups = transform_data(data.digits_session_1_dataset())
@@ -102,19 +111,27 @@ validation_sequence_groups = data.transform.pad_truncate(validation_sequence_gro
 train_sequences, train_labels = data.get_inputs(training_sequence_groups)
 val_sequences, val_labels = data.get_inputs(validation_sequence_groups)
 
+print train_sequences.shape, train_labels.shape # (105, 600, 8) (105,)
+print val_sequences.shape, val_labels.shape # (45, 600, 8) (45,)
+# print train_labels
+# print val_labels
+
 # Calculate sample weights
 class_weights = compute_class_weight('balanced', np.unique(train_labels), train_labels)
 train_weights = class_weights[list(train_labels)]
+# print class_weights # [1. 1. 1. 1. 1. 1. 1. 1. 1. 1. 1. 1. 1. 1. 1.]
+# print train_weights # [1.] * 105
 
 train_labels = tf.keras.utils.to_categorical(train_labels)
 val_labels = tf.keras.utils.to_categorical(val_labels)
 
-print np.shape(train_sequences)
-print np.shape(train_labels)
-print np.shape(val_sequences)
-print np.shape(val_labels)
+print 'Train sequences', np.shape(train_sequences) # (105, 600, 8)
+print 'Train labels', np.shape(train_labels) # (105, 15)
+print 'Val sequences', np.shape(val_sequences) # (45, 600, 8)
+print 'Val labels', np.shape(val_labels) # (45, 15)
 
 num_classes = len(training_sequence_groups)
+# print num_classes # 15
 
 ####################
 #### Model (MUST BE SAME AS patient_test_serial.py, patient_test_serial_trigger.py, patient_test_serial_silence.py)
@@ -333,3 +350,4 @@ with tf.Session() as session:
         table.finalize(divider=not reprint_header)
         if reprint_header:
             table.print_header()
+'''

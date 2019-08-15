@@ -1,6 +1,6 @@
 import os
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 os.environ['KERAS_BACKEND'] = 'tensorflow'
 import numpy as np
 import tensorflow as tf
@@ -240,7 +240,7 @@ for fold in list(range(config.num_folds)):
 
     else:
         model.fit([train_sequences, train_labels[:, :-1, :]], train_labels[:, 1:, :],
-                  validation_split=0.1,
+                  validation_split=0.3,
                   batch_size=config.batch_size, epochs=config.num_epochs,
                   callbacks=[tensorboard], verbose=1)
 
