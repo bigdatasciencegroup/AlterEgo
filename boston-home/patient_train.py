@@ -1,9 +1,10 @@
 import os
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
+import tensorflow as tf
+gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
 
 import numpy as np
-import tensorflow as tf
 from sklearn.utils.class_weight import compute_class_weight
 import matplotlib
 matplotlib.use('TkAgg')
@@ -174,7 +175,7 @@ accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
 ####################
 
 
-num_epochs = 200
+num_epochs = 700
 batch_size = 50
 
 num_training_samples = len(train_sequences)
@@ -236,7 +237,7 @@ def update_table(epoch, batch, training_loss, training_accuracy, max_validation_
 show_confusion_matrix = True
         
 saver = tf.train.Saver()
-with tf.Session() as session:
+with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as session:
     tf.global_variables_initializer().run()
     
     table = DynamicConsoleTable(layout)
@@ -306,8 +307,9 @@ with tf.Session() as session:
         validation_loss /= num_validation_samples
         validation_accuracy /= num_validation_samples
         if validation_accuracy > max_validation_accuracy:
-            model_name = 'patient_model.ckpt'
+            model_name = 'checkpoints/tina_model.ckpt'
             save_path = saver.save(session, os.path.join(abs_path, model_name))
+            best_epoch = epoch
             print ' Model saved:', model_name,
         max_validation_accuracy = max(validation_accuracy, max_validation_accuracy)
         
@@ -357,4 +359,5 @@ with tf.Session() as session:
         table.finalize(divider=not reprint_header)
         if reprint_header:
             table.print_header()
-'''
+
+print 'Best checkpoint saved in epoch # {}'.format(best_epoch+1)
