@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 import data
 
@@ -67,7 +68,7 @@ def transform_data(sequence_groups, sample_rate=250):
 
 # num_classes = len(filter(lambda x: '.txt' in x, os.listdir('patient_data')))
 length = 1000
-num_classes = 5 #Use this when training with scrambled data and change to number of classes being used
+num_classes = 15 #Use this when training with scrambled data and change to number of classes being used
 
 ####################
 #### Model (MUST BE SAME AS patient_train.py)
@@ -106,7 +107,7 @@ saver = tf.train.Saver()
 with tf.Session() as session:
     if test_model:
         tf.global_variables_initializer().run()
-        saver.restore(session, 'patient_model.ckpt')
+        saver.restore(session, 'checkpoints/tina_model.ckpt')
         
     displayed = 0
     step = 1
@@ -133,6 +134,6 @@ with tf.Session() as session:
             
         displayed = count // step * step
     
-    data.serial.start('/dev/tty.usbserial-DM01IDRB',
+    data.serial.start('/dev/tty.usbserial-DM01HUN9',
                       on_data, channels=channels, transform_fn=transform_data,
                       history_size=1500, shown_size=1200, override_step=35)
