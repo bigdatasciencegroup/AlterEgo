@@ -13,6 +13,8 @@ from display_utils import DynamicConsoleTable
 import math
 import time
 import os.path
+from sklearn.metrics import confusion_matrix
+from sklearn.utils.multiclass import unique_labels
 
 import data
 
@@ -93,10 +95,12 @@ print map(len, sequence_groups) # List of samples per file
 
 # Split sequence_groups into training and validation data
 training_sequence_groups, validation_sequence_groups = data.split(sequence_groups, 1./5) # test-train split per file
+training_sequence_groups, test_sequence_groups = data.split(training_sequence_groups, 1./4)
 
 print np.array(sequence_groups).shape # (15,10)
-print np.array(training_sequence_groups).shape # (15,7)
-print np.array(validation_sequence_groups).shape # (15,3)
+print np.array(training_sequence_groups).shape # (15,6)
+print np.array(validation_sequence_groups).shape # (15,2)
+print np.array(test_sequence_groups).shape # (15,2)
 maxes = []
 mins = []
 for x in sequence_groups:
@@ -114,32 +118,40 @@ print max(maxes), min(mins)
 length = 1000
 training_sequence_groups = data.transform.pad_truncate(training_sequence_groups, length)
 validation_sequence_groups = data.transform.pad_truncate(validation_sequence_groups, length)
+test_sequence_groups = data.transform.pad_truncate(test_sequence_groups, length)
 
 # Format into sequences and labels
 train_sequences, train_labels = data.get_inputs(training_sequence_groups)
 val_sequences, val_labels = data.get_inputs(validation_sequence_groups)
+test_sequences, test_labels = data.get_inputs(test_sequence_groups)
 
-print train_sequences.shape, train_labels.shape # (105, 600, 8) (105,)
-print val_sequences.shape, val_labels.shape # (45, 600, 8) (45,)
-# print train_labels
-# print val_labels
+print train_sequences.shape, train_labels.shape # (90, 1000, 8) (90,)
+print val_sequences.shape, val_labels.shape # (30, 1000, 8) (30,)
+print test_sequences.shape, test_labels.shape # (30, 1000, 8) (30,)
+print
+print train_labels
+print val_labels
+print test_labels
 
 # Calculate sample weights
 class_weights = compute_class_weight('balanced', np.unique(train_labels), train_labels)
 train_weights = class_weights[list(train_labels)]
 # print class_weights # [1. 1. 1. 1. 1. 1. 1. 1. 1. 1. 1. 1. 1. 1. 1.]
-# print train_weights # [1.] * 105
+# print train_weights # [1.] * 90
 
 train_labels = tf.keras.utils.to_categorical(train_labels)
 val_labels = tf.keras.utils.to_categorical(val_labels)
 
-print 'Train sequences', np.shape(train_sequences) # (105, 600, 8)
-print 'Train labels', np.shape(train_labels) # (105, 15)
-print 'Val sequences', np.shape(val_sequences) # (45, 600, 8)
-print 'Val labels', np.shape(val_labels) # (45, 15)
+print 'Train sequences', np.shape(train_sequences) # (90, 1000, 8)
+print 'Train labels', np.shape(train_labels) # (90, 15)
+print 'Val sequences', np.shape(val_sequences) # (30, 1000, 8)
+print 'Val labels', np.shape(val_labels) # (30, 15)
+print 'Test sequences', np.shape(test_sequences) # (30, 1000, 8)
+print 'Test labels', np.shape(test_labels) # (30, )
 
 num_classes = len(training_sequence_groups)
 # print num_classes # 15
+time.sleep(5)
 
 ####################
 #### Model (MUST BE SAME AS patient_test_serial.py, patient_test_serial_trigger.py, patient_test_serial_silence.py)
@@ -174,7 +186,7 @@ correct = tf.equal(tf.argmax(logits,1), tf.argmax(targets,1))
 accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
 ####################
 
-
+'''
 num_epochs = 700
 batch_size = 50
 
@@ -361,3 +373,80 @@ with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as session:
             table.print_header()
 
 print 'Best checkpoint saved in epoch # {}'.format(best_epoch+1)
+'''
+####### TESTING
+
+pred_labels = []
+saver = tf.train.Saver()
+with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as session:
+    tf.global_variables_initializer().run()
+    saver.restore(session, 'checkpoints/t_model.ckpt')
+
+    for sequence,label in zip(test_sequences, test_labels):
+        test_feed = {inputs: [sequence], training: False}
+        test_output = session.run(logits, test_feed)[0]
+        pred_labels.append(np.argmax(test_output))
+        same = np.argmax(test_output)!=label
+        print 'Predicted:', np.argmax(test_output), '\t', np.max(test_output), '\t', '*'*same
+        print 'Actual:', label 
+        print
+
+num_correct = np.count_nonzero(np.array(pred_labels)==test_labels)
+acc = float(num_correct)/len(test_labels)*100
+print 'Correct predictions: {}/{}'.format(num_correct, len(test_labels))
+print 'Test accuracy: {} %'.format(acc), 'on {} samples'.format(len(test_labels))
+
+def plot_confusion_matrix(y_true, y_pred, classes, normalize=False, title=None, cmap=plt.cm.Blues):
+    """
+    This function plots the confusion matrix.
+    Normalization can be applied by setting `normalize=True`.
+    """
+    np.set_printoptions(precision=2)
+    if not title:
+        if normalize:
+            title = 'Normalized confusion matrix'
+        else:
+            title = 'Confusion matrix, without normalization'
+
+    # Compute confusion matrix
+    cm = confusion_matrix(y_true, y_pred)
+    # Only use the labels that appear in the data
+    classes = classes[unique_labels(y_true, y_pred)]
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        print("Plotting Normalized confusion matrix")
+    else:
+        print("Plotting Confusion matrix, without normalization")
+
+    # print(cm)
+
+    fig, ax = plt.subplots()
+    im = ax.imshow(cm, interpolation='nearest', cmap=cmap)
+    ax.figure.colorbar(im, ax=ax)
+    # We want to show all ticks...
+    ax.set(xticks=np.arange(cm.shape[1]),
+           yticks=np.arange(cm.shape[0]),
+           # ... and label them with the respective list entries
+           xticklabels=classes, yticklabels=classes,
+           title=title,
+           ylabel='True label',
+           xlabel='Predicted label')
+
+    # Rotate the tick labels and set their alignment.
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+             rotation_mode="anchor")
+
+    # Loop over data dimensions and create text annotations.
+    fmt = '.2f' if normalize else 'd'
+    thresh = cm.max() / 2.
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            ax.text(j, i, format(cm[i, j], fmt),
+                    ha="center", va="center",
+                    color="white" if cm[i, j] > thresh else "black")
+    fig.tight_layout()
+    return ax
+
+classes = ['hello there good morning', 'thank you i appreciate it', 'goodbye see you later', 'it was nice meeting you', 'wish you luck and success', 'how are you doing today', 'i want to sleep now', 'can you please help me', 'i am very hungry', 'going to the bathroom', 'you are welcome', 'super tired already', 'i have been doing good', 'what is your name', 'i feel sorry for that'] 
+plot_confusion_matrix(np.array(test_labels, dtype=np.int64), np.array(pred_labels), np.array(classes))
+plt.show()
