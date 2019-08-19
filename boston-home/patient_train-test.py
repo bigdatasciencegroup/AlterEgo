@@ -186,7 +186,6 @@ correct = tf.equal(tf.argmax(logits,1), tf.argmax(targets,1))
 accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
 ####################
 
-'''
 num_epochs = 700
 batch_size = 50
 
@@ -373,7 +372,7 @@ with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as session:
             table.print_header()
 
 print 'Best checkpoint saved in epoch # {}'.format(best_epoch+1)
-'''
+
 ####### TESTING
 
 pred_labels = []
