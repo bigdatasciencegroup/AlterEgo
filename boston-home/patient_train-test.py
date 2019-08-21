@@ -77,7 +77,7 @@ def transform_data(sequence_groups, sample_rate=250):
         
 #### Load data
 def dataset(**kwargs):
-    patient_dir = 'patient_data/tina'
+    patient_dir = 'patient_data/carol'
 #    patient_dir = 'patient1'
     files = map(lambda x: patient_dir + '/' + x, filter(lambda x: '.txt' in x, os.listdir(patient_dir)))
     files.sort()
@@ -87,15 +87,15 @@ def dataset(**kwargs):
 # channels = range(1, 8) # DO NOT CHANGE
 channels = range(0, 8)
 
-total_data = dataset(channels=channels, surrounding=200)
+total_data = dataset(channels=channels, surrounding=235)
 print np.array(total_data).shape # (Files, Samples per file)
 sequence_groups = transform_data(total_data)
 print len(sequence_groups) # no. of Files
 print map(len, sequence_groups) # List of samples per file
 
 # Split sequence_groups into training and validation data
-training_sequence_groups, validation_sequence_groups = data.split(sequence_groups, 1./5) # test-train split per file
-training_sequence_groups, test_sequence_groups = data.split(training_sequence_groups, 1./4)
+training_sequence_groups, validation_sequence_groups = data.split(sequence_groups, 2./10)
+training_sequence_groups, test_sequence_groups = data.split(training_sequence_groups, 2./8)
 
 print np.array(sequence_groups).shape # (15,10)
 print np.array(training_sequence_groups).shape # (15,6)
@@ -104,7 +104,7 @@ print np.array(test_sequence_groups).shape # (15,2)
 maxes = []
 mins = []
 for x in sequence_groups:
-    print map(len, x)
+    print map(len, x), '\t', max(map(len, x))
     maxes.append(max(map(len, x)))
     mins.append(min(map(len, x)))
 print max(maxes), min(mins)
@@ -115,7 +115,7 @@ print max(maxes), min(mins)
 #validation_sequence_groups = transform_data(data.digits_session_4_dataset())
 
 # Pads or truncates each sequence to length
-length = 1000
+length = 900
 training_sequence_groups = data.transform.pad_truncate(training_sequence_groups, length)
 validation_sequence_groups = data.transform.pad_truncate(validation_sequence_groups, length)
 test_sequence_groups = data.transform.pad_truncate(test_sequence_groups, length)
@@ -125,13 +125,15 @@ train_sequences, train_labels = data.get_inputs(training_sequence_groups)
 val_sequences, val_labels = data.get_inputs(validation_sequence_groups)
 test_sequences, test_labels = data.get_inputs(test_sequence_groups)
 
+print
 print train_sequences.shape, train_labels.shape # (90, 1000, 8) (90,)
 print val_sequences.shape, val_labels.shape # (30, 1000, 8) (30,)
 print test_sequences.shape, test_labels.shape # (30, 1000, 8) (30,)
 print
-print train_labels
-print val_labels
-print test_labels
+print 'Train labels:\t', train_labels
+print 'Val labels:\t', val_labels
+print 'Test labels:\t', test_labels
+print
 
 # Calculate sample weights
 class_weights = compute_class_weight('balanced', np.unique(train_labels), train_labels)
@@ -142,12 +144,12 @@ train_weights = class_weights[list(train_labels)]
 train_labels = tf.keras.utils.to_categorical(train_labels)
 val_labels = tf.keras.utils.to_categorical(val_labels)
 
-print 'Train sequences', np.shape(train_sequences) # (90, 1000, 8)
-print 'Train labels', np.shape(train_labels) # (90, 15)
-print 'Val sequences', np.shape(val_sequences) # (30, 1000, 8)
-print 'Val labels', np.shape(val_labels) # (30, 15)
-print 'Test sequences', np.shape(test_sequences) # (30, 1000, 8)
-print 'Test labels', np.shape(test_labels) # (30, )
+print 'Train sequences\t', np.shape(train_sequences) # (90, 1000, 8)
+print 'Train labels\t', np.shape(train_labels) # (90, 15)
+print 'Val sequences\t', np.shape(val_sequences) # (30, 1000, 8)
+print 'Val labels\t', np.shape(val_labels) # (30, 15)
+print 'Test sequences\t', np.shape(test_sequences) # (30, 1000, 8)
+print 'Test labels\t', np.shape(test_labels) # (30, )
 
 num_classes = len(training_sequence_groups)
 # print num_classes # 15
@@ -156,7 +158,7 @@ time.sleep(5)
 ####################
 #### Model (MUST BE SAME AS patient_test_serial.py, patient_test_serial_trigger.py, patient_test_serial_silence.py)
 learning_rate = 1e-4
-dropout_rate = 0.4
+dropout_rate = 0.7
 
 inputs = tf.placeholder(tf.float32,[None, length, len(channels)]) #[batch_size,timestep,features]
 targets = tf.placeholder(tf.int32, [None, num_classes])
@@ -281,17 +283,16 @@ with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as session:
                         
             training_feed = {inputs: batch_sequences, targets: batch_labels,
                              weights: batch_weights, training: True}
-            batch_loss, _, batch_output = session.run([loss, optimizer, logits], training_feed)
-            batch_accuracy = session.run(accuracy, training_feed)
-                        
+            batch_loss, _, batch_output, batch_accuracy = session.run([loss, optimizer, logits, accuracy], training_feed)
+            
             training_loss += batch_loss * len(indices)
             training_accuracy += batch_accuracy * len(indices)
+            # print 'Epoch: {}\tBatch: {}\tBatch accuracy: {}\tTrain accuracy: {}'.format(epoch, batch, batch_accuracy, training_accuracy)
             train_output = batch_output if train_output is None else \
                                     np.concatenate([train_output, batch_output], axis=0)
             
         training_loss /= num_training_samples
         training_accuracy /= num_training_samples
-        
         # Validation
         validation_loss = 0.0
         validation_accuracy = 0.0
@@ -318,7 +319,7 @@ with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as session:
         validation_loss /= num_validation_samples
         validation_accuracy /= num_validation_samples
         if validation_accuracy > max_validation_accuracy:
-            model_name = 'checkpoints/t_model.ckpt'
+            model_name = 'checkpoints/c_model.ckpt'
             save_path = saver.save(session, os.path.join(abs_path, model_name))
             best_epoch = epoch
             print ' Model saved:', model_name,
@@ -327,7 +328,6 @@ with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as session:
         update_table(epoch, batch, training_loss, training_accuracy,
                      max_validation_accuracy, validation_loss, validation_accuracy, finished=True)
         
-        # Also ignore this part
         if show_confusion_matrix:
             predicted = np.argmax(val_output, axis=1)
             actual = np.argmax(val_labels, axis=1)
@@ -379,7 +379,7 @@ pred_labels = []
 saver = tf.train.Saver()
 with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as session:
     tf.global_variables_initializer().run()
-    saver.restore(session, 'checkpoints/t_model.ckpt')
+    saver.restore(session, 'checkpoints/c_model.ckpt')
 
     for sequence,label in zip(test_sequences, test_labels):
         test_feed = {inputs: [sequence], training: False}
