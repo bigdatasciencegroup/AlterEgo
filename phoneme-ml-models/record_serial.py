@@ -96,7 +96,7 @@ word_map = ['much M AH CH', 'obliged AH B L AY JH D', 'to T UW', 'you Y UW', 'it
 # 6) [210, 41, 267, 109, 80, 52, 26, 76, 43, 3, 49, 285, 30, 121, 115, 272, 216, 264, 209, 1, 22, 7, 141, 86, 241, 215, 68, 50, 156, 252, 254, 276, 178, 281, 237, 71, 129, 144, 133, 203, 255, 72, 235, 37]
 
 
-labels = [64, 15, 82, 41, 80, 52, 26, 76, 43, 24, 149, 116, 130, 49, 21, 70, 3, 146, 30, 150, 106, 47, 115, 13, 88, 8, 81, 60, 128, 1, 57, 22, 61, 63, 7, 86, 96, 68, 50, 139, 101, 20, 25, 134, 71, 129, 144, 79, 133, 137, 72, 140, 37]
+labels = [268, 269, 280, 110, 167, 117, 147, 273, 182, 27, 191, 95, 232, 11, 225, 283, 12, 179, 18, 170, 107, 119, 91, 99, 220, 180, 159, 89, 223, 206, 293, 245, 175, 58, 250, 62, 260, 120, 284, 73, 127, 59, 177, 266, 85, 51, 158, 204, 185, 150]
 
 labels = labels + [-1]
 
@@ -125,11 +125,13 @@ def on_data(history, trigger_history, index_history, count, samples_per_update, 
         if start and end:
             recorded_length = end - start
         # print 'WPM:', 60.0 / (float(recorded_length) / 250 / len(word_map[labels[recorded_count-(1 if end < len(trigger_history)-1 else 0)]].split(' ')))
-        print 'WPM:', 60.0 / (float(recorded_length) / 250)
+        # print 'WPM:', 60.0 / (float(recorded_length) / 250)
     print
     print 'Sample #' + str(recorded_count+1)+'/'+str(len(labels)-1), '\tNext:', word_map[labels[recorded_count]]
     print
 
-data.serial.start('/dev/tty.usbserial-DM01HUN9',
+# old: DM01HUN9 
+# new: DM01HQ99
+data.serial.start('/dev/tty.usbserial-DM01HQ99',
                   on_data, channels=channels, transform_fn=transform_data,
                   history_size=2500, shown_size=1200, override_step=100, bipolar=False)#35

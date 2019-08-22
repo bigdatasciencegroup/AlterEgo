@@ -1,9 +1,12 @@
 import os
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] ='2' # TF INFO and WARNING messages are not printed
+os.environ['TF_CPP_MIN_LOG_LEVEL'] ='2' # TF INFO and WARNING messages are not printed
 import tensorflow as tf
 gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
+
+from tensorflow.python.util import deprecation
+deprecation._PRINT_DEPRECATION_WARNINGS = False # Disables printing deprecation warnings
 
 import numpy as np
 from sklearn.utils.class_weight import compute_class_weight
@@ -79,7 +82,7 @@ def transform_data(sequence_groups, sample_rate=250):
         
 #### Load data
 def dataset(**kwargs):
-    patient_dir = 'patient_data/carol'
+    patient_dir = 'patient_data/richard'
 #    patient_dir = 'patient1'
     files = map(lambda x: patient_dir + '/' + x, filter(lambda x: '.txt' in x, os.listdir(patient_dir)))
     files.sort()
@@ -89,7 +92,7 @@ def dataset(**kwargs):
 # channels = range(1, 8) # DO NOT CHANGE
 channels = range(0, 8)
 
-total_data = dataset(channels=channels, surrounding=235)
+total_data = dataset(channels=channels, surrounding=210)
 print np.array(total_data).shape # (Files, Samples per file)
 sequence_groups = transform_data(total_data)
 print len(sequence_groups) # no. of Files
@@ -163,9 +166,10 @@ final_drop = []
 final_trial = []
 
 for drop in [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
-    for trial in [1, 2, 3]:
+    for trial in [1, 2, 3, 4, 5, 6, 7]:
         print
         print 'Dropout Rate: {}\tTrial: {}'.format(drop, trial)
+        tf.reset_default_graph()
         ####################
         #### Model (MUST BE SAME AS patient_test_serial.py, patient_test_serial_trigger.py, patient_test_serial_silence.py)
         learning_rate = 1e-4
@@ -330,7 +334,7 @@ for drop in [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
                 validation_loss /= num_validation_samples
                 validation_accuracy /= num_validation_samples
                 if validation_accuracy > max_validation_accuracy:
-                    model_name = 'checkpoints/c_model_' + str(drop) + '_' + str(trial) + '.ckpt'
+                    model_name = 'checkpoints/r_model_' + str(drop) + '_' + str(trial) + '.ckpt'
                     save_path = saver.save(session, os.path.join(abs_path, model_name))
                     best_epoch = epoch
                     # print ' Model saved:', model_name,
@@ -382,7 +386,7 @@ for drop in [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
                 # if reprint_header:
                 #     table.print_header()
 
-        print 'Checkpoint {} saved in epoch # {}'.format('c_model_' + str(drop) + '_' + str(trial) + '.ckpt', best_epoch+1)
+        print 'Checkpoint {} saved in epoch # {}'.format('r_model_' + str(drop) + '_' + str(trial) + '.ckpt', best_epoch+1)
 
         ####### TESTING
 
@@ -390,7 +394,7 @@ for drop in [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
         saver = tf.train.Saver()
         with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as session:
             tf.global_variables_initializer().run()
-            saver.restore(session, 'checkpoints/c_model_' + str(drop) + '_' + str(trial) + '.ckpt')
+            saver.restore(session, 'checkpoints/r_model_' + str(drop) + '_' + str(trial) + '.ckpt')
 
             for sequence,label in zip(test_sequences, test_labels):
                 test_feed = {inputs: [sequence], training: False}
@@ -466,8 +470,13 @@ for drop in [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
             classes = ['hello there good morning', 'thank you i appreciate it', 'goodbye see you later', 'it was nice meeting you', 'wish you luck and success', 'how are you doing today', 'i want to sleep now', 'can you please help me', 'i am very hungry', 'going to the bathroom', 'you are welcome', 'super tired already', 'i have been doing good', 'what is your name', 'i feel sorry for that'] 
             plot_confusion_matrix(np.array(test_labels, dtype=np.int64), np.array(pred_labels), np.array(classes))
             # plt.show()
-            plt.savefig('matrices/c_model_' + str(drop) + '_' + str(trial) + '.png')
+            plt.savefig('matrices/r_model_' + str(drop) + '_' + str(trial) + '.png')
             print 'Confusion Matrix saved'
+        else:
+            os.remove('checkpoints/r_model_' + str(drop) + '_' + str(trial) + '.ckpt.meta')
+            os.remove('checkpoints/r_model_' + str(drop) + '_' + str(trial) + '.ckpt.index')
+            os.remove('checkpoints/r_model_' + str(drop) + '_' + str(trial) + '.ckpt.data-00000-of-00001')
+            print '{} removed!'.format('checkpoints/r_model_' + str(drop) + '_' + str(trial) + '.ckpt')
 
 final = {'Dropout Rate':final_drop, 'Trial':final_trial, 'Test Accuracy':final_test_acc, 'Val Accuracy':final_val_acc}
 df = pd.DataFrame(final)
