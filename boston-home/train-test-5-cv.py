@@ -82,7 +82,7 @@ def transform_data(sequence_groups, sample_rate=250):
         
 #### Load data
 def dataset(**kwargs):
-    patient_dir = 'patient_data/carol'
+    patient_dir = 'patient_data/tina'
 #    patient_dir = 'patient1'
     files = map(lambda x: patient_dir + '/' + x, filter(lambda x: '.txt' in x, os.listdir(patient_dir)))
     files.sort()
@@ -92,7 +92,7 @@ def dataset(**kwargs):
 # channels = range(1, 8) # DO NOT CHANGE
 channels = range(0, 8)
 
-total_data = dataset(channels=channels, surrounding=235)
+total_data = dataset(channels=channels, surrounding=200)
 print np.array(total_data).shape # (Files, Samples per file)
 sequence_groups = transform_data(total_data)
 print len(sequence_groups) # no. of Files
@@ -120,7 +120,7 @@ def split_data(fold, sequence_groups):
     for i in range(len(sequence_groups)): # range(15)
         test_seq_groups[i] = np.array(sequence_groups[i])[selection]
         train_seq_groups[i] = np.array(sequence_groups[i])[rest]
-    train_seq_groups, val_seq_groups = data.split(train_seq_groups, 3./8)
+    train_seq_groups, val_seq_groups = data.split(train_seq_groups, 2./8)
     
     train_seqs, train_labels = data.get_inputs(data.transform.pad_truncate(train_seq_groups, length))
     val_seqs, val_labels = data.get_inputs(data.transform.pad_truncate(val_seq_groups, length))
@@ -155,7 +155,7 @@ for fold in range(5):
     ####################
     #### Model (MUST BE SAME AS patient_test_serial.py, patient_test_serial_trigger.py, patient_test_serial_silence.py)
     learning_rate = 1e-4
-    dropout_rate = 0.4
+    dropout_rate = 0.7
 
     inputs = tf.placeholder(tf.float32,[None, length, len(channels)]) #[batch_size,timestep,features]
     targets = tf.placeholder(tf.int32, [None, num_classes])
@@ -175,6 +175,7 @@ for fold in range(5):
     dropout = tf.layers.dropout(conv5, dropout_rate, training=training)
     reshaped = tf.reshape(dropout, [-1, np.prod(dropout.shape[1:])])
     fc1 = tf.layers.dense(reshaped, 250, activation=tf.nn.relu)
+    fc1 = tf.layers.dropout(fc1, 0.5, training=training)
     logits = tf.layers.dense(fc1, num_classes, activation=tf.nn.softmax)
 
     loss = tf.reduce_mean(tf.multiply(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=targets), weights))
@@ -316,7 +317,7 @@ for fold in range(5):
             validation_loss /= num_validation_samples
             validation_accuracy /= num_validation_samples
             if validation_accuracy > max_validation_accuracy:
-                model_name = 'checkpoints/c_model.ckpt'
+                model_name = 'checkpoints/t_model.ckpt'
                 save_path = saver.save(session, os.path.join(abs_path, model_name))
                 best_epoch = epoch
                 # print ' Model saved:', model_name,
@@ -376,14 +377,15 @@ for fold in range(5):
     saver = tf.train.Saver()
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as session:
         tf.global_variables_initializer().run()
-        saver.restore(session, 'checkpoints/c_model.ckpt')
+        saver.restore(session, 'checkpoints/t_model.ckpt')
 
         for sequence,label in zip(test_sequences, test_labels):
             test_feed = {inputs: [sequence], training: False}
             test_output = session.run(logits, test_feed)[0]
             pred_labels.append(np.argmax(test_output))
             same = np.argmax(test_output)!=label
-            # print 'Predicted:', np.argmax(test_output), '\t', np.max(test_output), '\t', '*'*same
+            
+            print 'Predicted:', np.argmax(test_output), '\t', np.max(test_output), '\t', '*'*same
             # print 'Actual:', label 
             # print
 
@@ -449,4 +451,5 @@ def plot_cm(cm, cmap=plt.cm.Blues, title=None, normalize=False):
     return ax
 
 plot_cm(cm)
+os.system('say done')
 plt.show()

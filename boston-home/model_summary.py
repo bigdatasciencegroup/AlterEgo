@@ -1,6 +1,6 @@
 import os
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] ='2' # TF INFO and WARNING messages are not printed
 
 import tensorflow as tf
@@ -23,7 +23,7 @@ from sklearn.utils.multiclass import unique_labels
 
 
 learning_rate = 1e-4
-dropout_rate = 0.4
+dropout_rate = 0.7
 num_classes = 15
 length = 900
 channels = range(8)
@@ -46,6 +46,7 @@ conv5 = tf.layers.max_pooling1d(conv5, 2, strides=2)
 dropout = tf.layers.dropout(conv5, dropout_rate, training=training)
 reshaped = tf.reshape(dropout, [-1, np.prod(dropout.shape[1:])])
 fc1 = tf.layers.dense(reshaped, 250, activation=tf.nn.relu)
+fc1 = tf.layers.dropout(fc1, 0.5, training=training)
 logits = tf.layers.dense(fc1, num_classes, activation=tf.nn.softmax)
 
 loss = tf.reduce_mean(tf.multiply(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=targets), weights))
