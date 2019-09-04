@@ -1,6 +1,6 @@
 import os
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] ='2' # TF INFO and WARNING messages are not printed
 
 import tensorflow as tf
@@ -18,8 +18,6 @@ from display_utils import DynamicConsoleTable
 import math
 import time
 import os.path
-from sklearn.metrics import confusion_matrix
-from sklearn.utils.multiclass import unique_labels
 
 import data
 
@@ -79,7 +77,6 @@ def transform_data(sequence_groups, sample_rate=250):
     
     return sequence_groups
 
-        
 #### Load data
 def dataset(**kwargs):
     patient_dir = 'patient_data/richard'
@@ -111,20 +108,20 @@ length = 900
 
 def split_data(fold, sequence_groups):
 
-    test_seq_groups = [None] * len(sequence_groups)
+    val_seq_groups = [None] * len(sequence_groups)
     train_seq_groups = [None] * len(sequence_groups)
 
     selection = range(fold*2, (fold+1)*2)
     rest = list(set(range(10)) - set(selection))
 
     for i in range(len(sequence_groups)): # range(15)
-        test_seq_groups[i] = np.array(sequence_groups[i])[selection]
+        val_seq_groups[i] = np.array(sequence_groups[i])[selection]
         train_seq_groups[i] = np.array(sequence_groups[i])[rest]
-    train_seq_groups, val_seq_groups = data.split(train_seq_groups, 2./8)
+    # train_seq_groups, val_seq_groups = data.split(train_seq_groups, 2./8)
     
     train_seqs, train_labels = data.get_inputs(data.transform.pad_truncate(train_seq_groups, length))
     val_seqs, val_labels = data.get_inputs(data.transform.pad_truncate(val_seq_groups, length))
-    test_seqs, test_labels = data.get_inputs(data.transform.pad_truncate(test_seq_groups, length))
+    # test_seqs, test_labels = data.get_inputs(data.transform.pad_truncate(test_seq_groups, length))
 
     class_weights = compute_class_weight('balanced', np.unique(train_labels), train_labels)
     train_weights = class_weights[list(train_labels)]
@@ -132,24 +129,20 @@ def split_data(fold, sequence_groups):
     train_labels = tf.keras.utils.to_categorical(train_labels)
     val_labels = tf.keras.utils.to_categorical(val_labels)
 
-    return train_seqs, train_labels, val_seqs, val_labels, test_seqs, test_labels, train_weights
+    return train_seqs, train_labels, val_seqs, val_labels, train_weights
 
-cm_list = []
-
-threshold_acc = 0.
-final_acc = []
-final_trial = []
-# final_start_time = time.time()
-for trial in range(10):
-    cv_scores = []
+####################
+#### Model (MUST BE SAME AS patient_test_serial.py, patient_test_serial_trigger.py, patient_test_serial_silence.py)
+# for units in [250, 500, 750, 1000]:
+for dropout_rate in [0.3,0.4,0.5,0.6,0.7,0.8,0.9]: 
     print
-    print 'Trial', trial
+    print '1st dropout', dropout_rate 
+    cv_scores = []
     for fold in range(5):
-        print
-        print 'Fold', fold
+        # print
+        # print 'Fold', fold
         tf.reset_default_graph()
-        train_sequences, train_labels, val_sequences, val_labels, test_sequences, test_labels,\
-         train_weights = split_data(fold, sequence_groups)
+        train_sequences, train_labels, val_sequences, val_labels, train_weights = split_data(fold, sequence_groups)
 
         num_classes = 15
         # print 'Train sequences\t', np.shape(train_sequences) # (90, 1000, 8)
@@ -162,7 +155,7 @@ for trial in range(10):
         ####################
         #### Model (MUST BE SAME AS patient_test_serial.py, patient_test_serial_trigger.py, patient_test_serial_silence.py)
         learning_rate = 1e-4
-        dropout_rate = 0.3
+        # dropout_rate = 0.7
 
         inputs = tf.placeholder(tf.float32,[None, length, len(channels)]) #[batch_size,timestep,features]
         targets = tf.placeholder(tf.int32, [None, num_classes])
@@ -179,6 +172,10 @@ for trial in range(10):
         conv4 = tf.layers.max_pooling1d(conv4, 2, strides=2)
         conv5 = tf.layers.conv1d(conv4, 400, 3, activation=tf.nn.relu, padding='valid')
         conv5 = tf.layers.max_pooling1d(conv5, 2, strides=2)
+        # conv6 = tf.layers.conv1d(conv5, 400, 3, activation=tf.nn.relu, padding='valid')
+        # conv6 = tf.layers.max_pooling1d(conv6, 2, strides=2)
+        # conv7 = tf.layers.conv1d(conv6, 400, 3, activation=tf.nn.relu, padding='valid')
+        # conv7 = tf.layers.max_pooling1d(conv7, 2, strides=2)
         dropout = tf.layers.dropout(conv5, dropout_rate, training=training)
         reshaped = tf.reshape(dropout, [-1, np.prod(dropout.shape[1:])])
         fc1 = tf.layers.dense(reshaped, 250, activation=tf.nn.relu)
@@ -324,7 +321,7 @@ for trial in range(10):
                 validation_loss /= num_validation_samples
                 validation_accuracy /= num_validation_samples
                 if validation_accuracy > max_validation_accuracy:
-                    model_name = 'checkpoints/r_model_{}_{}.ckpt'.format(str(trial), str(fold))
+                    model_name = 'checkpoints/r_model_{}.ckpt'.format(str(fold))
                     save_path = saver.save(session, os.path.join(abs_path, model_name))
                     best_epoch = epoch
                     # print ' Model saved:', model_name,
@@ -376,113 +373,7 @@ for trial in range(10):
                 # if reprint_header:
                 #     table.print_header()
 
-        print 'Best checkpoint saved in epoch # {} with max val accuracy {:.2f} %'.format(best_epoch+1, max_validation_accuracy*100)
+        # print 'Best checkpoint saved in epoch # {} with max val accuracy {:.2f} %'.format(best_epoch+1, max_validation_accuracy*100)
+        cv_scores.append(max_validation_accuracy)
 
-        ####### TESTING
-
-        pred_labels = []
-        saver = tf.train.Saver()
-        with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as session:
-            tf.global_variables_initializer().run()
-            saver.restore(session, 'checkpoints/r_model_{}_{}.ckpt'.format(str(trial), str(fold)))
-
-            for sequence,label in zip(test_sequences, test_labels):
-                test_feed = {inputs: [sequence], training: False}
-                test_output = session.run(logits, test_feed)[0]
-                pred_labels.append(np.argmax(test_output))
-                same = np.argmax(test_output)!=label
-                
-                # print 'Predicted:', np.argmax(test_output), '\t', np.max(test_output), '\t', '*'*same
-                # print 'Actual:', label 
-                # print
-
-        num_correct = np.count_nonzero(np.array(pred_labels)==test_labels)
-        acc = float(num_correct)/len(test_labels)*100
-        print 'Correct predictions: {}/{}'.format(num_correct, len(test_labels))
-        print 'Test accuracy: {} %'.format(acc), 'on {} samples'.format(len(test_labels))
-        # final_end_time = time.time()
-        # print 'Time Elapsed since start {} secs'.format(int(final_end_time - final_start_time))
-
-        # def plot_confusion_matrix(y_true, y_pred, classes, normalize=False):
-        #     """
-        #     This function plots the confusion matrix.
-        #     Normalization can be applied by setting `normalize=True`.
-        #     """
-        #     np.set_printoptions(precision=2)
-
-        #     # Compute confusion matrix
-        #     cm = confusion_matrix(y_true, y_pred)
-        #     # Only use the labels that appear in the data
-        #     classes = classes[unique_labels(y_true, y_pred)]
-        #     if normalize:
-        #         cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-
-        #     return cm
-
-        # classes = ['hello there good morning', 'thank you i appreciate it', 'goodbye see you later', 'it was nice meeting you', 'wish you luck and success', 'how are you doing today', 'i want to sleep now', 'can you please help me', 'i am very hungry', 'going to the bathroom', 'you are welcome', 'super tired already', 'i have been doing good', 'what is your name', 'i feel sorry for that'] 
-        # cm_list.append(plot_confusion_matrix(np.array(test_labels, dtype=np.int64), np.array(pred_labels), np.array(classes)))
-        cv_scores.append(acc)
-
-    print
-    print "Final avg acc: %.2f%% (+/- %.2f%%)" % (np.mean(cv_scores), np.std(cv_scores))
-    print
-
-    # cm = np.add(cm_list[0], np.add(cm_list[1], np.add(cm_list[2], np.add(cm_list[3], cm_list[4]))))
-    # # cm = np.add(cm_list[0], np.add(cm_list[1], np.add(cm_list[2], np.add(cm_list[3], np.add(cm_list[4], np.add(cm_list[5], np.add(cm_list[6], np.add(cm_list[7], np.add(cm_list[8], cm_list[9])))))))))
-        
-    # def plot_cm(cm, cmap=plt.cm.Blues, title=None, normalize=False):
-
-        # fig, ax = plt.subplots()
-        # im = ax.imshow(cm, interpolation='nearest', cmap=cmap)
-        # ax.figure.colorbar(im, ax=ax)
-        # # We want to show all ticks...
-        # ax.set(xticks=np.arange(cm.shape[1]),
-        #        yticks=np.arange(cm.shape[0]),
-        #        # ... and label them with the respective list entries
-        #        xticklabels=classes, yticklabels=classes,
-        #        title=title,
-        #        ylabel='True label',
-        #        xlabel='Predicted label')
-
-        # # Rotate the tick labels and set their alignment.
-        # plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
-        #          rotation_mode="anchor")
-
-        # # Loop over data dimensions and create text annotations.
-        # fmt = '.2f' if normalize else 'd'
-        # thresh = cm.max() / 2.
-        # for i in range(cm.shape[0]):
-        #     for j in range(cm.shape[1]):
-        #         ax.text(j, i, format(cm[i, j], fmt),
-        #                 ha="center", va="center",
-        #                 color="white" if cm[i, j] > thresh else "black")
-        # fig.tight_layout()
-        # return ax
-
-    # plot_cm(cm)
-    # plt.show()
-    if np.mean(cv_scores)>threshold_acc:
-        final_acc.append(np.mean(cv_scores))
-        final_trial.append(trial)
-        # threshold_acc = np.mean(cv_scores)
-    else:
-        os.remove('checkpoints/r_model_{}_0.ckpt.meta'.format(str(trial)))
-        os.remove('checkpoints/r_model_{}_1.ckpt.meta'.format(str(trial)))
-        os.remove('checkpoints/r_model_{}_2.ckpt.meta'.format(str(trial)))
-        os.remove('checkpoints/r_model_{}_3.ckpt.meta'.format(str(trial)))
-        os.remove('checkpoints/r_model_{}_4.ckpt.meta'.format(str(trial)))
-        os.remove('checkpoints/r_model_{}_0.ckpt.data-00000-of-00001'.format(str(trial)))
-        os.remove('checkpoints/r_model_{}_1.ckpt.data-00000-of-00001'.format(str(trial)))
-        os.remove('checkpoints/r_model_{}_2.ckpt.data-00000-of-00001'.format(str(trial)))
-        os.remove('checkpoints/r_model_{}_3.ckpt.data-00000-of-00001'.format(str(trial)))
-        os.remove('checkpoints/r_model_{}_4.ckpt.data-00000-of-00001'.format(str(trial)))
-        os.remove('checkpoints/r_model_{}_0.ckpt.index'.format(str(trial)))
-        os.remove('checkpoints/r_model_{}_1.ckpt.index'.format(str(trial)))
-        os.remove('checkpoints/r_model_{}_2.ckpt.index'.format(str(trial)))
-        os.remove('checkpoints/r_model_{}_3.ckpt.index'.format(str(trial)))
-        os.remove('checkpoints/r_model_{}_4.ckpt.index'.format(str(trial)))
-print
-print
-print final_acc
-print final_trial
-print np.mean(final_acc)
+    print 'Final val accuracy = {:.2f} %'.format(np.mean(cv_scores)*100)
